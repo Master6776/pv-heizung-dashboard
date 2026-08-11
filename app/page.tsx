@@ -106,9 +106,11 @@ export default function Dashboard() {
                   <div className="text-gray-400 text-xs">WW Speicher</div>
                   <div className="text-white font-bold text-lg">{heating.wwSpeicher ?? 0} °C</div>
                 </div>
+                
+                {/* --- GETAUSCHT: Pool kommt jetzt hier --- */}
                 <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
-                  <div className="text-gray-400 text-xs">Heizkreis Vorlauf</div>
-                  <div className="text-white font-bold text-lg">{heating.hkVorlauf ?? 0} °C</div>
+                  <div className="text-gray-400 text-xs">Pool</div>
+                  <div className="text-white font-bold text-lg">{heating.pool ?? 0} °C</div>
                 </div>
                 
                 {/* Puffer 1 & 2 Block direkt hintereinander */}
@@ -133,10 +135,13 @@ export default function Dashboard() {
                   <div className="text-gray-400 text-xs">FBH Vorlauf</div>
                   <div className="text-white font-bold text-lg">{heating.fbhVorlauf ?? 0} °C</div>
                 </div>
+                
+                {/* --- GETAUSCHT: Heizkreis Vorlauf ist jetzt hier unten --- */}
                 <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
-                  <div className="text-gray-400 text-xs">Pool</div>
-                  <div className="text-white font-bold text-lg">{heating.pool ?? 0} °C</div>
+                  <div className="text-gray-400 text-xs">Heizkreis Vorlauf</div>
+                  <div className="text-white font-bold text-lg">{heating.hkVorlauf ?? 0} °C</div>
                 </div>
+
               </div>
             </div>
           </div>
