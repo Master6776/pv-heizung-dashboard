@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
+import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import KebaTile from '@/components/KebaTile';
 
 const FALLBACK_DATA = {
@@ -13,6 +13,14 @@ const FALLBACK_DATA = {
     dailyConsumption: 12.1,
     dailyExport: 15.2,
     currentConsumption: 850,
+  },
+  keba: {
+    status: 'Nicht bereit',
+    power: 0,
+    current: 0,
+    voltage: 230,
+    totalEnergy: 127.3,
+    reachable: true,
   },
   mystrom: {
     switch1: { name: 'Heizstab', power: 2000, relay: true, reachable: true, consumption: 4.5 },
@@ -32,9 +40,42 @@ const FALLBACK_DATA = {
   }
 };
 
+// Astronomische Hilfsfunktion zur Berechnung der Mondphase & Beleuchtung
+function calculateMoonData() {
+  const now = new Date();
+  const knownNewMoon = new Date('2000-01-06T18:14:00Z');
+  const synodicMonth = 29.5305877;
+  const diffDays = (now.getTime() - knownNewMoon.getTime()) / (1000 * 60 * 60 * 24);
+  const cycleDay = diffDays % synodicMonth;
+  const normalized = cycleDay < 0 ? cycleDay + synodicMonth : cycleDay;
+  
+  const illumination = Math.round(((1 - Math.cos((normalized / synodicMonth) * 2 * Math.PI)) / 2) * 100);
+  
+  let phase = 'Neumond';
+  let icon = '🌑';
+  
+  if (normalized < 1.8) { phase = 'Neumond'; icon = '🌑'; }
+  else if (normalized < 7.4) { phase = 'Zunehmende Sichel'; icon = '🌒'; }
+  else if (normalized < 11.1) { phase = 'Erstes Viertel'; icon = '🌓'; }
+  else if (normalized < 14.8) { phase = 'Zunehmender Mond'; icon = '🌔'; }
+  else if (normalized < 18.5) { phase = 'Vollmond'; icon = '🌕'; }
+  else if (normalized < 22.1) { phase = 'Abnehmender Mond'; icon = '🌖'; }
+  else if (normalized < 25.8) { phase = 'Letztes Viertel'; icon = '🌗'; }
+  else { phase = 'Abnehmende Sichel'; icon = '🌘'; }
+
+  const moonProgress = Math.round((normalized / synodicMonth) * 100);
+
+  return { phase, icon, illumination, moonProgress };
+}
+
 export default function Dashboard() {
   const [data, setData] = useState<any>(FALLBACK_DATA);
-  const [history, setHistory] = useState<any[]>([]);
+  const [history, setHistory] = useState<any[]>(() => [
+    { time: 'Vor 15 Min', pv: 1200, house: 500, exportVal: 3 },
+    { time: 'Vor 10 Min', pv: 1800, house: 650, exportVal: 8 },
+    { time: 'Vor 5 Min', pv: 2400, house: 600, exportVal: 14 },
+    { time: 'Live', pv: 3100, house: 750, exportVal: 19 },
+  ]);
   const [history7d, setHistory7d] = useState<any[]>([]);
   const [weather, setWeather] = useState<any>({ 
     temp: 19, 
@@ -50,6 +91,12 @@ export default function Dashboard() {
     sunset: '20:30',
     daylightProgress: 50,
     daylightTotal: '14h 30m',
+    moonPhase: 'Vollmond',
+    moonIcon: '🌕',
+    moonIllumination: 98,
+    moonProgress: 50,
+    moonrise: '21:15',
+    moonset: '06:45',
     daily: [
       { day: 'Do', max: 22, min: 14, pop: 10 },
       { day: 'Fr', max: 24, min: 15, pop: 20 },
@@ -176,6 +223,8 @@ export default function Dashboard() {
         else if (aqiVal > 60 && aqiVal <= 80) aqiText = 'Schlecht';
         else if (aqiVal > 80) aqiText = 'Sehr schlecht';
 
+        const moon = calculateMoonData();
+
         const dailyData = [];
         if (weatherJson.daily && weatherJson.daily.time) {
           for (let i = 1; i <= 3; i++) {
@@ -205,6 +254,12 @@ export default function Dashboard() {
           sunset: sunsetTime,
           daylightProgress: daylightProgress,
           daylightTotal: daylightTotalFormatted,
+          moonPhase: moon.phase,
+          moonIcon: moon.icon,
+          moonIllumination: moon.illumination,
+          moonProgress: moon.moonProgress,
+          moonrise: '21:30',
+          moonset: '07:10',
           daily: dailyData
         });
       }
@@ -239,7 +294,6 @@ export default function Dashboard() {
     fetchData(); 
     fetchWeather();
     
-    // Intervall auf 2 Minuten (120000 ms) angepasst, um die Wallbox und das Netzwerk zu entlasten
     const interval = setInterval(() => { 
       fetchData(); 
       fetchWeather(); 
@@ -283,9 +337,13 @@ export default function Dashboard() {
     setHistory7d(past7Days);
   }, [data]);
 
-  const heating = data?.heating || FALLBACK_DATA.heating;
-  const pv = data?.pv || FALLBACK_DATA.pv;
-  const mystrom = data?.mystrom || FALLBACK_DATA.mystrom;
+  const heating = { ...FALLBACK_DATA.heating, ...(data?.heating || {}) };
+  const pv = { ...FALLBACK_DATA.pv, ...(data?.pv || {}) };
+  const keba = { ...FALLBACK_DATA.keba, ...(data?.keba || {}) };
+  const mystrom = {
+    switch1: { ...FALLBACK_DATA.mystrom.switch1, ...(data?.mystrom?.switch1 || {}) },
+    switch2: { ...FALLBACK_DATA.mystrom.switch2, ...(data?.mystrom?.switch2 || {}) }
+  };
 
   const dailyYield = pv.dailyYield ?? 0;
   const dailyExport = pv.dailyExport ?? 0;
@@ -305,7 +363,6 @@ export default function Dashboard() {
           </span>
         </header>
 
-        {/* Dynamische Unwetterwarnungen */}
         {alerts.length > 0 && (
           <div className="space-y-3">
             {alerts.map((alert, index) => (
@@ -334,10 +391,9 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Hauptkacheln (Grid angepasst für 5 Widgets) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-6">
 
-          {/* Photovoltaik */}
+          {/* 1. Photovoltaik Kachel */}
           <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
             <img 
               src="https://images.unsplash.com/photo-1613665813446-82a78c468a1d?q=80&w=1000&auto=format&fit=crop" 
@@ -385,66 +441,88 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* KEBA P40 Wallbox */}
-          <KebaTile />
-
-          {/* myStrom Switches */}
+          {/* 2. Einangleichte Kachel: Wallbox & Plugs (Im einheitlichen Stil) */}
           <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
             <img 
               src="https://images.unsplash.com/photo-1558002038-1055907df827?q=80&w=1000&auto=format&fit=crop" 
-              alt="myStrom" 
+              alt="Mobilität & Smart Plugs" 
               className="absolute inset-0 w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-[2px]"></div>
 
-            <div className="relative z-10">
-              <div className="flex justify-between items-center mb-6">
+            <div className="relative z-10 space-y-4">
+              <div className="flex justify-between items-center mb-2">
                 <div>
-                  <h2 className="text-xl font-bold text-white">myStrom</h2>
-                  <p className="text-xs text-gray-300">Smart Plugs</p>
+                  <h2 className="text-xl font-bold text-white">Wallbox & Plugs</h2>
+                  <p className="text-xs text-gray-300">Keba & myStrom</p>
                 </div>
-                <span className="text-2xl">🔌</span>
+                <span className="text-2xl">⚡🔌</span>
               </div>
 
-              <div className="space-y-6">
-                <div className="bg-slate-900/90 p-3.5 rounded-xl border border-white/10 backdrop-blur-md space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-white font-bold text-sm truncate max-w-[120px]">{mystrom.switch1.name}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${mystrom.switch1.reachable ? (mystrom.switch1.relay ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-500/20 text-gray-300') : 'bg-red-500/20 text-red-400'}`}>
-                      {mystrom.switch1.reachable ? (mystrom.switch1.relay ? 'An' : 'Aus') : 'Offline'}
-                    </span>
+              {/* Keba Sektion */}
+              <div>
+                <div className="text-xs text-amber-300 font-bold uppercase tracking-wider mb-1">Keba Wallbox</div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center py-2 border-b border-white/10">
+                    <span className="text-gray-300 text-sm">Status:</span>
+                    <span className="text-gray-300 font-bold text-sm">{keba.status}</span>
                   </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-300">Leistung:</span>
-                    <span className="text-amber-400 font-bold">{mystrom.switch1.power} W</span>
+                  <div className="flex justify-between items-center py-2 border-b border-white/10">
+                    <span className="text-gray-300 text-sm">Leistung:</span>
+                    <span className="text-amber-400 font-bold text-sm">{(keba.power / 1000).toFixed(2)} kW</span>
                   </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-300">Gesamt:</span>
-                    <span className="text-white font-bold">{Number(mystrom.switch1.consumption ?? 0).toFixed(2)} kWh</span>
+                  <div className="flex justify-between items-center py-2 border-b border-white/10">
+                    <span className="text-gray-300 text-sm">Stromstärke:</span>
+                    <span className="text-white font-bold text-sm">{keba.current} A</span>
                   </div>
-                </div>
-
-                <div className="bg-slate-900/90 p-3.5 rounded-xl border border-white/10 backdrop-blur-md space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-white font-bold text-sm truncate max-w-[120px]">{mystrom.switch2.name}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${mystrom.switch2.reachable ? (mystrom.switch2.relay ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-500/20 text-gray-300') : 'bg-red-500/20 text-red-400'}`}>
-                      {mystrom.switch2.reachable ? (mystrom.switch2.relay ? 'An' : 'Aus') : 'Offline'}
-                    </span>
+                  <div className="flex justify-between items-center py-2 border-b border-white/10">
+                    <span className="text-gray-300 text-sm">Spannung:</span>
+                    <span className="text-white font-bold text-sm">{keba.voltage} V</span>
                   </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-300">Leistung:</span>
-                    <span className="text-amber-400 font-bold">{mystrom.switch2.power} W</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-300">Gesamt:</span>
-                    <span className="text-white font-bold">{Number(mystrom.switch2.consumption ?? 0).toFixed(2)} kWh</span>
+                  <div className="flex justify-between items-center py-2 border-b border-white/10">
+                    <span className="text-gray-300 text-sm">Gesamtladung:</span>
+                    <span className="text-cyan-300 font-bold text-sm">{keba.totalEnergy} kWh</span>
                   </div>
                 </div>
               </div>
+
+              {/* myStrom Sektion */}
+              <div className="pt-2">
+                <div className="text-xs text-cyan-300 font-bold uppercase tracking-wider mb-2">myStrom Smart Plugs</div>
+                
+                <div className="space-y-3">
+                  <div className="py-2 border-b border-white/10 space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-white font-bold text-sm">{mystrom.switch1.name}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${mystrom.switch1.reachable ? (mystrom.switch1.relay ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-500/20 text-gray-300') : 'bg-red-500/20 text-red-400'}`}>
+                        {mystrom.switch1.reachable ? (mystrom.switch1.relay ? 'An' : 'Aus') : 'Offline'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs text-gray-300">
+                      <span>Leistung: <strong className="text-amber-400">{mystrom.switch1.power} W</strong></span>
+                      <span>Gesamt: <strong className="text-white">{Number(mystrom.switch1.consumption ?? 0).toFixed(2)} kWh</strong></span>
+                    </div>
+                  </div>
+
+                  <div className="py-2 space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-white font-bold text-sm">{mystrom.switch2.name}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${mystrom.switch2.reachable ? (mystrom.switch2.relay ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-500/20 text-gray-300') : 'bg-red-500/20 text-red-400'}`}>
+                        {mystrom.switch2.reachable ? (mystrom.switch2.relay ? 'An' : 'Aus') : 'Offline'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs text-gray-300">
+                      <span>Leistung: <strong className="text-amber-400">{mystrom.switch2.power} W</strong></span>
+                      <span>Gesamt: <strong className="text-white">{Number(mystrom.switch2.consumption ?? 0).toFixed(2)} kWh</strong></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
 
-          {/* Wetter & Sonnenstand (Kombiniert) */}
+          {/* 3. Wetter, Sonne & Mond Kachel */}
           <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
             <img 
               src="https://images.unsplash.com/photo-1534088568595-a066f410bcda?q=80&w=1000&auto=format&fit=crop" 
@@ -462,7 +540,6 @@ export default function Dashboard() {
                 <span className="text-2xl">{weather.icon}</span>
               </div>
 
-              {/* Wetter-Metriken */}
               <div className="space-y-2">
                 <div className="flex justify-between items-center py-1.5 border-b border-white/10">
                   <span className="text-gray-300 text-sm">Temperatur:</span>
@@ -490,7 +567,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Integrierter Sonnenstand-Fortschritt */}
+              {/* Sonnenstand Widget */}
               <div className="bg-slate-900/90 p-3 rounded-xl border border-white/10 backdrop-blur-md space-y-2 shadow-inner">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center space-x-1.5">
@@ -520,7 +597,36 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* 3-Tage Vorschau */}
+              {/* Mondverlauf & Phase Widget */}
+              <div className="bg-slate-900/90 p-3 rounded-xl border border-white/10 backdrop-blur-md space-y-2 shadow-inner">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center space-x-1.5">
+                    <span>{weather.moonIcon}</span>
+                    <span className="text-xs text-indigo-300 font-bold uppercase tracking-wider">Mondverlauf</span>
+                  </div>
+                  <span className="text-indigo-400 font-extrabold text-xs">{weather.moonIllumination}% beleuchtet</span>
+                </div>
+
+                <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-white/10 relative shadow-inner">
+                  <div 
+                    className="bg-gradient-to-r from-indigo-900 via-indigo-500 to-slate-200 h-full rounded-full transition-all duration-700 shadow-[0_0_10px_rgba(129,140,248,0.4)]"
+                    style={{ width: `${weather.moonProgress}%` }}
+                  ></div>
+                </div>
+
+                <div className="flex justify-between items-center text-[11px] text-gray-300 pt-0.5 font-medium">
+                  <div className="flex items-center space-x-1">
+                    <span>🌙</span>
+                    <span className="text-indigo-300 font-bold">{weather.moonrise}</span>
+                  </div>
+                  <span className="text-indigo-200 font-semibold">{weather.moonPhase}</span>
+                  <div className="flex items-center space-x-1">
+                    <span>🌑</span>
+                    <span className="text-slate-400 font-bold">{weather.moonset}</span>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <div className="text-gray-300 text-xs mb-1.5">Vorschau</div>
                 <div className="grid grid-cols-3 gap-2">
@@ -536,7 +642,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Heizung (C.M.I. Schema) */}
+          {/* 4. Heizung C.M.I. Kachel */}
           <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
             <img 
               src="https://images.unsplash.com/photo-1581092160607-ee22621dd758?q=80&w=1000&auto=format&fit=crop" 
@@ -598,7 +704,6 @@ export default function Dashboard() {
 
         </div>
 
-        {/* Diagramme */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700 bg-slate-900/90 backdrop-blur-md">
             <div className="flex justify-between items-center mb-4">
@@ -610,59 +715,46 @@ export default function Dashboard() {
 
             <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={history.length > 0 ? history : [{ time: '10:00', pv: 1200, house: 600, exportVal: 5 }]}>
-                  <defs>
-                    <linearGradient id="pvGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.4}/>
-                      <stop offset="95%" stopColor="#fbbf24" stopOpacity={0.0}/>
-                    </linearGradient>
-                    <linearGradient id="houseGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.4}/>
-                      <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.0}/>
-                    </linearGradient>
-                    <linearGradient id="exportGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#34d399" stopOpacity={0.4}/>
-                      <stop offset="95%" stopColor="#34d399" stopOpacity={0.0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis dataKey="time" stroke="#94a3b8" fontSize={12} />
-                  <YAxis yAxisId="left" stroke="#fbbf24" fontSize={12} />
-                  <YAxis yAxisId="right" orientation="right" stroke="#34d399" fontSize={12} />
+                <LineChart data={history}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                  <XAxis dataKey="time" stroke="#94a3b8" fontSize={12} tickLine={false} />
+                  <YAxis yAxisId="left" stroke="#fbbf24" fontSize={12} tickLine={false} domain={[0, 'auto']} />
+                  <YAxis yAxisId="right" orientation="right" stroke="#34d399" fontSize={12} tickLine={false} domain={[0, 'auto']} />
                   <Tooltip 
                     contentStyle={{ backgroundColor: '#020617', borderColor: '#334155', borderRadius: '0.75rem', color: '#fff' }} 
                   />
-                  <Area 
+                  <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                  <Line 
                     yAxisId="left" 
                     type="monotone" 
                     dataKey="pv" 
                     name="PV-Leistung (W)" 
                     stroke="#fbbf24" 
-                    strokeWidth={2} 
-                    fillOpacity={1} 
-                    fill="url(#pvGradient)" 
+                    strokeWidth={3} 
+                    dot={{ r: 4, fill: '#fbbf24' }} 
+                    activeDot={{ r: 6 }} 
                   />
-                  <Area 
+                  <Line 
                     yAxisId="left" 
                     type="monotone" 
                     dataKey="house" 
                     name="Hausverbrauch (W)" 
                     stroke="#38bdf8" 
-                    strokeWidth={2} 
-                    fillOpacity={1} 
-                    fill="url(#houseGradient)" 
+                    strokeWidth={3} 
+                    dot={{ r: 4, fill: '#38bdf8' }} 
+                    activeDot={{ r: 6 }} 
                   />
-                  <Area 
+                  <Line 
                     yAxisId="right" 
                     type="monotone" 
                     dataKey="exportVal" 
                     name="Einspeisung (kWh)" 
                     stroke="#34d399" 
-                    strokeWidth={2} 
-                    fillOpacity={1} 
-                    fill="url(#exportGradient)" 
+                    strokeWidth={3} 
+                    dot={{ r: 4, fill: '#34d399' }} 
+                    activeDot={{ r: 6 }} 
                   />
-                </AreaChart>
+                </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
@@ -677,14 +769,14 @@ export default function Dashboard() {
 
             <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={history7d}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis dataKey="day" stroke="#94a3b8" fontSize={12} />
-                  <YAxis stroke="#94a3b8" fontSize={12} />
+                <BarChart data={history7d.length > 0 ? history7d : [{ day: 'Heute', yield: 0, consumption: 0 }]}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                  <XAxis dataKey="day" stroke="#94a3b8" fontSize={12} tickLine={false} />
+                  <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} />
                   <Tooltip 
                     contentStyle={{ backgroundColor: '#020617', borderColor: '#334155', borderRadius: '0.75rem', color: '#fff' }} 
                   />
-                  <Legend />
+                  <Legend wrapperStyle={{ paddingTop: '10px' }} />
                   <Bar dataKey="yield" name="Ertrag (kWh)" fill="#fbbf24" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="consumption" name="Verbrauch (kWh)" fill="#38bdf8" radius={[4, 4, 0, 0]} />
                 </BarChart>
