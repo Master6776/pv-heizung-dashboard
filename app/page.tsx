@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import KebaTile from '@/components/KebaTile';
+import TrashTile from '@/components/TrashTile';
+import DashboardTimer from '@/components/DashboardTimer';
 
 const FALLBACK_DATA = {
   success: true,
@@ -40,7 +42,6 @@ const FALLBACK_DATA = {
   }
 };
 
-// Astronomische Hilfsfunktion zur Berechnung der Mondphase & Beleuchtung
 function calculateMoonData() {
   const now = new Date();
   const knownNewMoon = new Date('2000-01-06T18:14:00Z');
@@ -297,7 +298,7 @@ export default function Dashboard() {
     const interval = setInterval(() => { 
       fetchData(); 
       fetchWeather(); 
-    }, 120000);
+    }, 300000);
 
     return () => clearInterval(interval);
   }, []);
@@ -358,9 +359,12 @@ export default function Dashboard() {
         
         <header className="flex justify-between items-center border-b border-slate-800 pb-4">
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Heizung & PV Dashboard</h1>
-          <span className="text-xs px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20">
-            Live aktiv
-          </span>
+          <div className="flex items-center space-x-3">
+            <DashboardTimer intervalSeconds={300} />
+            <span className="text-xs px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20">
+              Live aktiv
+            </span>
+          </div>
         </header>
 
         {alerts.length > 0 && (
@@ -391,7 +395,8 @@ export default function Dashboard() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-6">
+        {/* Grid für alle Kacheln inklusive der Diagramm-Kachel */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
 
           {/* 1. Photovoltaik Kachel */}
           <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
@@ -441,7 +446,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 2. Einangleichte Kachel: Wallbox & Plugs (Im einheitlichen Stil) */}
+          {/* 2. Wallbox & Plugs Kachel */}
           <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
             <img 
               src="https://images.unsplash.com/photo-1558002038-1055907df827?q=80&w=1000&auto=format&fit=crop" 
@@ -686,7 +691,7 @@ export default function Dashboard() {
                   <div className="text-gray-300 text-xs">Puffer 2 Oben</div>
                   <div className="text-white font-bold text-base">{heating.puffer2Oben ?? 0} °C</div>
                 </div>
-                <div className="bg-slate-900/90 p-3 rounded-xl border border-white/10 backdrop-blur-md">
+                <div className="bg-slate-900/90 p-2.5 rounded-xl border border-white/10 backdrop-blur-md">
                   <div className="text-gray-300 text-xs">Puffer 2 Unten</div>
                   <div className="text-white font-bold text-base">{heating.puffer2Unten ?? 0} °C</div>
                 </div>
@@ -702,87 +707,38 @@ export default function Dashboard() {
             </div>
           </div>
 
-        </div>
+          {/* 5. Müllabfuhr Kachel */}
+          <TrashTile />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700 bg-slate-900/90 backdrop-blur-md">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h2 className="text-xl font-bold text-white">Energie-Übersicht (Live)</h2>
-                <p className="text-xs text-gray-400">Vergleich von PV-Erzeugung, Hausverbrauch und Netzeinspeisung</p>
+          {/* 6. PV-Historie Kachel (Balkendiagramm) */}
+          <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
+            <div className="relative z-10 flex flex-col h-full justify-between">
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h2 className="text-xl font-bold text-white">7-Tages-Historie</h2>
+                  <p className="text-xs text-gray-400">Ertrag & Verbrauch in kWh</p>
+                </div>
+                <span className="text-2xl">📊</span>
               </div>
-            </div>
 
-            <div className="h-72 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={history}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                  <XAxis dataKey="time" stroke="#94a3b8" fontSize={12} tickLine={false} />
-                  <YAxis yAxisId="left" stroke="#fbbf24" fontSize={12} tickLine={false} domain={[0, 'auto']} />
-                  <YAxis yAxisId="right" orientation="right" stroke="#34d399" fontSize={12} tickLine={false} domain={[0, 'auto']} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#020617', borderColor: '#334155', borderRadius: '0.75rem', color: '#fff' }} 
-                  />
-                  <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                  <Line 
-                    yAxisId="left" 
-                    type="monotone" 
-                    dataKey="pv" 
-                    name="PV-Leistung (W)" 
-                    stroke="#fbbf24" 
-                    strokeWidth={3} 
-                    dot={{ r: 4, fill: '#fbbf24' }} 
-                    activeDot={{ r: 6 }} 
-                  />
-                  <Line 
-                    yAxisId="left" 
-                    type="monotone" 
-                    dataKey="house" 
-                    name="Hausverbrauch (W)" 
-                    stroke="#38bdf8" 
-                    strokeWidth={3} 
-                    dot={{ r: 4, fill: '#38bdf8' }} 
-                    activeDot={{ r: 6 }} 
-                  />
-                  <Line 
-                    yAxisId="right" 
-                    type="monotone" 
-                    dataKey="exportVal" 
-                    name="Einspeisung (kWh)" 
-                    stroke="#34d399" 
-                    strokeWidth={3} 
-                    dot={{ r: 4, fill: '#34d399' }} 
-                    activeDot={{ r: 6 }} 
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={history7d}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                    <XAxis dataKey="day" stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                    <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '0.75rem', color: '#fff', fontSize: '12px' }} 
+                    />
+                    <Legend wrapperStyle={{ fontSize: '11px' }} />
+                    <Bar dataKey="yield" name="Ertrag" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="consumption" name="Verbrauch" fill="#38bdf8" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
 
-          <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700 bg-slate-900/90 backdrop-blur-md">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h2 className="text-xl font-bold text-white">Ertrag letzte 7 Tage</h2>
-                <p className="text-xs text-gray-400">Vergleich von PV-Ertrag und Verbrauch (kWh)</p>
-              </div>
-            </div>
-
-            <div className="h-72 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={history7d.length > 0 ? history7d : [{ day: 'Heute', yield: 0, consumption: 0 }]}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                  <XAxis dataKey="day" stroke="#94a3b8" fontSize={12} tickLine={false} />
-                  <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#020617', borderColor: '#334155', borderRadius: '0.75rem', color: '#fff' }} 
-                  />
-                  <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                  <Bar dataKey="yield" name="Ertrag (kWh)" fill="#fbbf24" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="consumption" name="Verbrauch (kWh)" fill="#38bdf8" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
         </div>
 
       </div>
