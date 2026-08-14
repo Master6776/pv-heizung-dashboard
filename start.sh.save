@@ -1,0 +1,6 @@
+#!/bin/bash
+sleep 15
+cd /Users/christophbelmega/pv-heizung-dashboard
+npm run start
+
+

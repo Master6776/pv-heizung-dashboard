@@ -43,14 +43,16 @@ let cachedKeba = {
 
 async function fetchHeatingData() {
   try {
-    const cmiHost = process.env.CMI_HOST || 'http://192.168.2.133';
+    const cmiHost = process.env.CMI_HOST || 'http://192.168.2.215';
     const cmiNode = process.env.CMI_NODE || '1';
     const cmiUser = process.env.CMI_USER || 'admin';
     const cmiPass = process.env.CMI_PASSWORD || 'admin';
     const authHeader = 'Basic ' + Buffer.from(`${cmiUser}:${cmiPass}`).toString('base64');
     
+    console.log(`[CMI] Verbinde zu ${cmiHost}...`);
+
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     const res = await fetch(`${cmiHost}/INCLUDE/api.cgi?jsonnode=${cmiNode}&jsonparam=I,O`, {
       headers: { Authorization: authHeader },
@@ -59,11 +61,20 @@ async function fetchHeatingData() {
     });
     clearTimeout(timeoutId);
 
+    console.log(`[CMI] HTTP Status: ${res.status} ${res.statusText}`);
+
     if (res.ok) {
       const cmiData = await res.json();
-      const inputs = cmiData?.Data?.Inputs || cmiData?.inputs || [];
-      const getIn = (idx: number) => {
-        const item = inputs[idx];
+      
+      const inputs = cmiData?.Data?.Inputs || cmiData?.inputs || cmiData?.Data?.inputs || [];
+      console.log(`[CMI] Anzahl gefundener Inputs im JSON: ${inputs.length}`);
+
+      // Robuste Funktion: Sucht primär nach CMI-Eingangsnummer, sekundär nach Array-Index
+      const getIn = (inputNumber: number, arrayIndex: number) => {
+        let item = inputs.find((i: any) => i?.Number === inputNumber || i?.number === inputNumber);
+        if (!item) {
+          item = inputs[arrayIndex];
+        }
         if (!item) return 0;
         if (typeof item === 'number') return item;
         if (typeof item.Value === 'number') return item.Value;
@@ -74,30 +85,35 @@ async function fetchHeatingData() {
       };
 
       cachedHeating = {
-        solarKollektor: getIn(0),
-        wwSpeicher: getIn(1),
-        puffer1Oben: getIn(2),
-        puffer1Unten: getIn(3),
-        hkVorlauf: getIn(4),
-        fbhVorlauf: getIn(5),
-        kesselRücklauf: getIn(6),
-        kesselVorlauf: getIn(7),
-        puffer2Oben: getIn(8),
-        puffer2Unten: getIn(9),
-        ausserTemp: getIn(10),
-        pool: getIn(12),
+        solarKollektor: getIn(1, 0),
+        wwSpeicher: getIn(2, 1),
+        puffer1Oben: getIn(3, 2),
+        puffer1Unten: getIn(4, 3),
+        hkVorlauf: getIn(5, 4),
+        fbhVorlauf: getIn(6, 5),
+        kesselRücklauf: getIn(7, 6),
+        kesselVorlauf: getIn(8, 7),
+        puffer2Oben: getIn(9, 8),
+        puffer2Unten: getIn(10, 9),
+        ausserTemp: getIn(11, 10),
+        pool: getIn(13, 12),
         kesselAbgas: 0,
       };
+
+      console.log("[CMI] Gelesene Heizungs-Werte:", cachedHeating);
+    } else {
+      const errText = await res.text();
+      console.error("[CMI] Fehlerhafte Antwort:", res.status, res.statusText, errText);
     }
   } catch (e: any) {
-    console.error("CMI Abruf Fehler:", e.message);
+    console.error("[CMI Abruf Fehler]:", e.message);
   }
 }
 
 async function fetchPvData() {
   try {
     const client = new ModbusRTU();
-    client.setTimeout(2000);
+    client.setTimeout(3000);
     await client.connectTCP(process.env.SUNGROW_HOST || '192.168.2.102', { port: 502 });
     client.setID(1);
 
@@ -134,7 +150,7 @@ async function fetchMystromData() {
   const fetchSwitch = async (ip: string, name: string) => {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1500);
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
       const res = await fetch(`http://${ip}/report`, {
         cache: 'no-store',
         signal: controller.signal,
@@ -178,11 +194,10 @@ async function fetchMystromData() {
 async function fetchKebaData() {
   try {
     const client = new ModbusRTU();
-    client.setTimeout(5000);
+    client.setTimeout(10000);
     await client.connectTCP(process.env.KEBA_HOST || '192.168.2.142', { port: 502 });
     client.setID(255); 
 
-    // Geändert auf readHoldingRegisters (FC 03) für KEBA P40 Telemetrie
     const readReg32 = async (addr: number) => {
       const res = await client.readHoldingRegisters(addr, 2);
       if (res?.data && res.data.length >= 2) {
