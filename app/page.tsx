@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import KebaTile from '@/components/KebaTile';
 import TrashTile from '@/components/TrashTile';
-import DashboardTimer from '@/components/DashboardTimer';
+
 
 const FALLBACK_DATA = {
   success: true,
@@ -42,6 +42,7 @@ const FALLBACK_DATA = {
   }
 };
 
+// Astronomische Hilfsfunktion zur Berechnung der Mondphase & Beleuchtung
 function calculateMoonData() {
   const now = new Date();
   const knownNewMoon = new Date('2000-01-06T18:14:00Z');
@@ -359,12 +360,9 @@ export default function Dashboard() {
         
         <header className="flex justify-between items-center border-b border-slate-800 pb-4">
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Heizung & PV Dashboard</h1>
-          <div className="flex items-center space-x-3">
-            <DashboardTimer intervalSeconds={300} />
-            <span className="text-xs px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20">
-              Live aktiv
-            </span>
-          </div>
+          <span className="text-xs px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20">
+            Live aktiv
+          </span>
         </header>
 
         {alerts.length > 0 && (
@@ -395,7 +393,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Grid für alle Kacheln inklusive der Diagramm-Kachel */}
+        {/* Grid für die Kacheln (jetzt inkl. TrashTile) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
 
           {/* 1. Photovoltaik Kachel */}
@@ -707,37 +705,8 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 5. Müllabfuhr Kachel */}
+          {/* 5. Müllabfuhr Massing (AWV) Kachel */}
           <TrashTile />
-
-          {/* 6. PV-Historie Kachel (Balkendiagramm) */}
-          <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
-            <div className="relative z-10 flex flex-col h-full justify-between">
-              <div className="flex justify-between items-center mb-4">
-                <div>
-                  <h2 className="text-xl font-bold text-white">7-Tages-Historie</h2>
-                  <p className="text-xs text-gray-400">Ertrag & Verbrauch in kWh</p>
-                </div>
-                <span className="text-2xl">📊</span>
-              </div>
-
-              <div className="h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={history7d}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="day" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                    <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '0.75rem', color: '#fff', fontSize: '12px' }} 
-                    />
-                    <Legend wrapperStyle={{ fontSize: '11px' }} />
-                    <Bar dataKey="yield" name="Ertrag" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="consumption" name="Verbrauch" fill="#38bdf8" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
 
         </div>
 

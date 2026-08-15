@@ -18,6 +18,15 @@ let cachedHeating = {
   kesselAbgas: 0,
 };
 
+let cachedHeating37 = {
+  eingang1: 0,
+  eingang2: 0,
+  eingang3: 0,
+  eingang4: 0,
+  ausgang1: 0,
+  ausgang2: 0,
+};
+
 let cachedPv = { 
   currentPower: 0, 
   dailyYield: 0, 
@@ -49,8 +58,6 @@ async function fetchHeatingData() {
     const cmiPass = process.env.CMI_PASSWORD || 'admin';
     const authHeader = 'Basic ' + Buffer.from(`${cmiUser}:${cmiPass}`).toString('base64');
     
-    console.log(`[CMI] Verbinde zu ${cmiHost}...`);
-
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
@@ -61,20 +68,13 @@ async function fetchHeatingData() {
     });
     clearTimeout(timeoutId);
 
-    console.log(`[CMI] HTTP Status: ${res.status} ${res.statusText}`);
-
     if (res.ok) {
       const cmiData = await res.json();
-      
       const inputs = cmiData?.Data?.Inputs || cmiData?.inputs || cmiData?.Data?.inputs || [];
-      console.log(`[CMI] Anzahl gefundener Inputs im JSON: ${inputs.length}`);
 
-      // Robuste Funktion: Sucht primär nach CMI-Eingangsnummer, sekundär nach Array-Index
       const getIn = (inputNumber: number, arrayIndex: number) => {
         let item = inputs.find((i: any) => i?.Number === inputNumber || i?.number === inputNumber);
-        if (!item) {
-          item = inputs[arrayIndex];
-        }
+        if (!item) item = inputs[arrayIndex];
         if (!item) return 0;
         if (typeof item === 'number') return item;
         if (typeof item.Value === 'number') return item.Value;
@@ -99,14 +99,58 @@ async function fetchHeatingData() {
         pool: getIn(13, 12),
         kesselAbgas: 0,
       };
-
-      console.log("[CMI] Gelesene Heizungs-Werte:", cachedHeating);
-    } else {
-      const errText = await res.text();
-      console.error("[CMI] Fehlerhafte Antwort:", res.status, res.statusText, errText);
     }
   } catch (e: any) {
-    console.error("[CMI Abruf Fehler]:", e.message);
+    console.error("CMI Node 1 Abruf Fehler:", e.message);
+  }
+}
+
+async function fetchHeatingData37() {
+  try {
+    const cmiHost = process.env.CMI_HOST || 'http://192.168.2.215';
+    const cmiUser = process.env.CMI_USER || 'admin';
+    const cmiPass = process.env.CMI_PASSWORD || 'admin';
+    const authHeader = 'Basic ' + Buffer.from(`${cmiUser}:${cmiPass}`).toString('base64');
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    const res = await fetch(`${cmiHost}/INCLUDE/api.cgi?jsonnode=37&jsonparam=I,O`, {
+      headers: { Authorization: authHeader },
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const cmiData = await res.json();
+      console.log("[CMI Node 37 ROHDATEN]:", JSON.stringify(cmiData));
+
+      const inputs = cmiData?.Data?.Inputs || cmiData?.inputs || cmiData?.Data?.inputs || [];
+
+      const getIn37 = (inputNumber: number, arrayIndex: number) => {
+        let item = inputs.find((i: any) => i?.Number === inputNumber || i?.number === inputNumber);
+        if (!item) item = inputs[arrayIndex];
+        if (!item) return 0;
+        if (typeof item === 'number') return item;
+        if (typeof item.Value === 'number') return item.Value;
+        if (item.Value && typeof item.Value.Value === 'number') return item.Value.Value;
+        if (item.Value && typeof item.Value.val === 'number') return item.Value.val;
+        if (item.value !== undefined) return item.value;
+        return 0;
+      };
+
+      cachedHeating37 = {
+        eingang1: getIn37(1, 0),
+        eingang2: getIn37(2, 1),
+        eingang3: getIn37(3, 2),
+        eingang4: getIn37(4, 3),
+        ausgang1: 0,
+        ausgang2: 0,
+      };
+    }
+  } catch (e: any) {
+    console.error("CMI Node 37 Abruf Fehler:", e.message);
   }
 }
 
@@ -160,19 +204,15 @@ async function fetchMystromData() {
       if (res.ok) {
         const data = await res.json();
         const totalWs = data.energy_since_boot ?? data.Ws ?? 0;
-        const consumptionValue = totalWs / 3600000;
-
         return {
           name,
           power: data.power ?? 0,
           relay: data.relay ?? false,
-          consumption: consumptionValue,
+          consumption: totalWs / 3600000,
           reachable: true,
         };
       }
-    } catch (e) {
-      console.error(`myStrom Fehler bei ${ip}:`, e);
-    }
+    } catch (e) {}
     return { name, power: 0, relay: false, reachable: false, consumption: 0 };
   };
 
@@ -181,11 +221,7 @@ async function fetchMystromData() {
       fetchSwitch('192.168.2.115', 'myStrom-Switch-DC9618'),
       fetchSwitch('192.168.2.118', 'myStrom-Switch-DD14B8'),
     ]);
-
-    cachedMystrom = {
-      switch1: s1,
-      switch2: s2,
-    };
+    cachedMystrom = { switch1: s1, switch2: s2 };
   } catch (e: any) {
     console.error("myStrom Abruf Fehler:", e.message);
   }
@@ -215,20 +251,17 @@ async function fetchKebaData() {
     const powerMw = await readReg32(1020);
     const energyRaw = await readReg32(1036);
 
-    const totalEnergyKwh = Number(((energyRaw * 0.1) / 1000).toFixed(1));
-
     cachedKeba = {
       status: status,
       substatus: 0,
       power: Number((powerMw / 1000000).toFixed(2)),
       current: Number((currentMa / 1000).toFixed(1)),
       voltage: voltageV,
-      totalEnergy: totalEnergyKwh,
+      totalEnergy: Number(((energyRaw * 0.1) / 1000).toFixed(1)),
       reachable: true,
     };
     client.close();
   } catch (e: any) {
-    console.error("KEBA P40 Abruf Fehler:", e.message);
     cachedKeba.reachable = false;
   }
 }
@@ -236,6 +269,7 @@ async function fetchKebaData() {
 export async function GET() {
   await Promise.allSettled([
     fetchHeatingData(),
+    fetchHeatingData37(),
     fetchPvData(),
     fetchMystromData(),
     fetchKebaData(),
@@ -244,6 +278,7 @@ export async function GET() {
   return NextResponse.json({
     success: true,
     heating: cachedHeating,
+    heating37: cachedHeating37,
     pv: cachedPv,
     mystrom: cachedMystrom,
     keba: cachedKeba,
