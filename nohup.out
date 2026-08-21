@@ -1,0 +1,132 @@
+
+> pv-heizung-dashboard@0.1.0 start
+> next start
+
+⨯ Failed to start server
+Error: listen EADDRINUSE: address already in use :::3000
+    at <unknown> (Error: listen EADDRINUSE: address already in use :::3000)
+    at new Promise (<anonymous>) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3000
+}
+
+> pv-heizung-dashboard@0.1.0 start
+> next start
+
+⨯ Failed to start server
+Error: listen EADDRINUSE: address already in use :::3000
+    at <unknown> (Error: listen EADDRINUSE: address already in use :::3000)
+    at new Promise (<anonymous>) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3000
+}
+
+> pv-heizung-dashboard@0.1.0 start
+> next start
+
+▲ Next.js 16.2.12
+- Local:         http://localhost:3000
+- Network:       http://192.168.2.203:3000
+✓ Ready in 154ms
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786802704},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786802722},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786802780},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786802886},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786802895},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786802937},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786803893},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786803901},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786804201},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786804501},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786804801},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786804906},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786806329},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786806458},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786806629},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786806801},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786806804},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786806929},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786807158},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786807229},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786807529},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786807690},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786807829},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786808129},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786808429},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786808729},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786809029},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786809329},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786809630},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786809930},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786810230},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786810530},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786810830},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786811935},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786812010},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786812310},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786812610},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786812910},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"91","Timestamp":1786813213},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786813485},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786814495},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786814795},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786815095},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786816360},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786816556},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786816645},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786816680},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786816791},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786817787},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786817904},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786818524},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786818865},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786826471},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786826534},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786827444},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786827740},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786827746},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786827785},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786828757},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786830741},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786864247},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786867912},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786907362},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786909034},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786909551},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786914944},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786920894},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786952814},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786956576},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786960744},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786961410},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786964063},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786964572},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786964748},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786964872},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786965919},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786966785},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786967085},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786967385},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786967685},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786967985},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+[CMI Node 37 ROHDATEN]: {"Header":{"Version":8,"Device":"00","Timestamp":1786968309},"Data":{},"Status":"TOO MANY REQUESTS","Status code":4}
+
+> pv-heizung-dashboard@0.1.0 start
+> next start
+
+⨯ Failed to start server
+Error: listen EADDRINUSE: address already in use :::3000
+    at <unknown> (Error: listen EADDRINUSE: address already in use :::3000)
+    at new Promise (<anonymous>) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '::',
+  port: 3000
+}

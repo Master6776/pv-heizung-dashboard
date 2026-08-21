@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import KebaTile from '@/components/KebaTile';
 import TrashTile from '@/components/TrashTile';
-
+import DashboardTimer from '@/components/DashboardTimer';
+import SolarForecastTile from '@/components/SolarForecastTile';
 
 const FALLBACK_DATA = {
   success: true,
@@ -42,7 +43,6 @@ const FALLBACK_DATA = {
   }
 };
 
-// Astronomische Hilfsfunktion zur Berechnung der Mondphase & Beleuchtung
 function calculateMoonData() {
   const now = new Date();
   const knownNewMoon = new Date('2000-01-06T18:14:00Z');
@@ -360,9 +360,12 @@ export default function Dashboard() {
         
         <header className="flex justify-between items-center border-b border-slate-800 pb-4">
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Heizung & PV Dashboard</h1>
-          <span className="text-xs px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20">
-            Live aktiv
-          </span>
+          <div className="flex items-center space-x-3">
+            <DashboardTimer />
+            <span className="text-xs px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20">
+              Live aktiv
+            </span>
+          </div>
         </header>
 
         {alerts.length > 0 && (
@@ -393,7 +396,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Grid für die Kacheln (jetzt inkl. TrashTile) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
 
           {/* 1. Photovoltaik Kachel */}
@@ -462,7 +464,6 @@ export default function Dashboard() {
                 <span className="text-2xl">⚡🔌</span>
               </div>
 
-              {/* Keba Sektion */}
               <div>
                 <div className="text-xs text-amber-300 font-bold uppercase tracking-wider mb-1">Keba Wallbox</div>
                 <div className="space-y-2">
@@ -472,7 +473,9 @@ export default function Dashboard() {
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-white/10">
                     <span className="text-gray-300 text-sm">Leistung:</span>
-                    <span className="text-amber-400 font-bold text-sm">{(keba.power / 1000).toFixed(2)} kW</span>
+                    <span className="text-amber-400 font-bold text-sm">
+                      {(keba.power > 100 ? keba.power / 1000 : Number(keba.power || 0)).toFixed(2)} kW
+                    </span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-white/10">
                     <span className="text-gray-300 text-sm">Stromstärke:</span>
@@ -489,7 +492,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* myStrom Sektion */}
               <div className="pt-2">
                 <div className="text-xs text-cyan-300 font-bold uppercase tracking-wider mb-2">myStrom Smart Plugs</div>
                 
@@ -570,7 +572,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Sonnenstand Widget */}
               <div className="bg-slate-900/90 p-3 rounded-xl border border-white/10 backdrop-blur-md space-y-2 shadow-inner">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center space-x-1.5">
@@ -600,7 +601,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Mondverlauf & Phase Widget */}
               <div className="bg-slate-900/90 p-3 rounded-xl border border-white/10 backdrop-blur-md space-y-2 shadow-inner">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center space-x-1.5">
@@ -705,7 +705,10 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 5. Müllabfuhr Massing (AWV) Kachel */}
+          {/* 5. Solar-Prognose Kachel (am Ende) */}
+          <SolarForecastTile />
+
+          {/* 6. Müllabfuhr Kachel (am Ende) */}
           <TrashTile />
 
         </div>
