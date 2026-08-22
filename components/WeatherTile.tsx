@@ -2,21 +2,17 @@
 
 import React from 'react';
 
-export default function SolarForecastTile({ weather }: { weather?: any }) {
-  // Führt übergebene Props mit Fallbacks zusammen, damit nichts fehlt
+export default function WeatherTile({ weather }: { weather?: any }) {
   const data = {
-    temp: 18.4,
+    temp: 18.5,
     condition: 'Teils bewölkt',
-    wind: '16.2 km/h',
+    wind: '15.5 km/h',
     precip: '0 mm',
     uvIndex: '3.2',
     sunrise: '06:15',
     sunset: '20:45',
     moonPhase: 'Zunehmender Mond',
-    todayYield: 25.4,
-    tomorrowYield: 36.8,
-    dayAfterYield: 0.0,
-    ...weather, // Überschreibt mit echten Werten, falls vom Parent übergeben
+    ...weather,
   };
 
   return (
@@ -24,7 +20,7 @@ export default function SolarForecastTile({ weather }: { weather?: any }) {
       <div>
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-white">Wetter & Solar-Prognose</h2>
+          <h2 className="text-xl font-bold text-white">Wetter & Astronomie</h2>
           <span className="text-2xl">⛅</span>
         </div>
 
@@ -51,8 +47,8 @@ export default function SolarForecastTile({ weather }: { weather?: any }) {
         {/* Trennlinie */}
         <div className="border-t border-slate-800 my-6"></div>
 
-        {/* 2. NEU: Sonne, UV & Mondphase Sektion */}
-        <div className="grid grid-cols-3 gap-3 mb-6 text-center">
+        {/* 2. Sonne, UV & Mondphase Sektion */}
+        <div className="grid grid-cols-3 gap-3 text-center">
           <div className="bg-slate-800/40 p-3 rounded-xl border border-slate-700/30 flex flex-col justify-center">
             <div className="text-xs text-slate-400 mb-1">UV-Index</div>
             <div className="text-base font-bold text-amber-400">{data.uvIndex}</div>
@@ -65,30 +61,6 @@ export default function SolarForecastTile({ weather }: { weather?: any }) {
           <div className="bg-slate-800/40 p-3 rounded-xl border border-slate-700/30 flex flex-col justify-center">
             <div className="text-xs text-slate-400 mb-1">Mondphase</div>
             <div className="text-xs font-bold text-slate-200 leading-tight">{data.moonPhase}</div>
-          </div>
-        </div>
-
-        {/* Trennlinie */}
-        <div className="border-t border-slate-800 my-6"></div>
-
-        {/* 3. Ertrags-Prognose (Forecast.Solar) */}
-        <div>
-          <div className="text-xs font-bold text-slate-400 tracking-wider uppercase mb-3">
-            ERTRAGS-PROGNOSE (FORECAST.SOLAR)
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-slate-800/40 p-3 rounded-xl border border-slate-700/30 text-center">
-              <div className="text-xs text-slate-400">Heute</div>
-              <div className="text-base font-bold text-yellow-400 mt-1">{data.todayYield} kWh</div>
-            </div>
-            <div className="bg-slate-800/40 p-3 rounded-xl border border-slate-700/30 text-center">
-              <div className="text-xs text-slate-400">Morgen</div>
-              <div className="text-base font-bold text-yellow-400 mt-1">{data.tomorrowYield} kWh</div>
-            </div>
-            <div className="bg-slate-800/40 p-3 rounded-xl border border-slate-700/30 text-center">
-              <div className="text-xs text-slate-400">Übermorgen</div>
-              <div className="text-base font-bold text-yellow-400 mt-1">{data.dayAfterYield} kWh</div>
-            </div>
           </div>
         </div>
 

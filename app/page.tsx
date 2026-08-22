@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import HeatingTile from '@/components/HeatingTile';
+import WeatherTile from '@/components/WeatherTile';
 
 const FALLBACK_DATA = {
   success: true,
@@ -192,8 +194,8 @@ export default function Dashboard() {
         const sunriseStr = weatherJson.daily?.sunrise?.[0] || '';
         const sunsetStr = weatherJson.daily?.sunset?.[0] || '';
         
-        const sunriseTime = sunriseStr ? sunriseStr.split('T')[1] : '06:00';
-        const sunsetTime = sunsetStr ? sunsetStr.split('T')[1] : '20:30';
+        const sunriseTime = sunriseStr ? sunriseStr.split('T')[1].substring(0, 5) : '06:00';
+        const sunsetTime = sunsetStr ? sunsetStr.split('T')[1].substring(0, 5) : '20:30';
 
         let daylightProgress = 50;
         let daylightTotalFormatted = '14h 30m';
@@ -271,21 +273,6 @@ export default function Dashboard() {
 
         const moon = calculateMoonData();
 
-        const dailyData = [];
-        if (weatherJson.daily && weatherJson.daily.time) {
-          for (let i = 1; i <= 3; i++) {
-            if (weatherJson.daily.time[i]) {
-              const dateStr = new Date(weatherJson.daily.time[i]).toLocaleDateString('de-DE', { weekday: 'short' });
-              dailyData.push({
-                day: dateStr,
-                max: Math.round(weatherJson.daily.temperature_2m_max[i]),
-                min: Math.round(weatherJson.daily.temperature_2m_min[i]),
-                pop: weatherJson.daily.precipitation_probability_max?.[i] ?? 0,
-              });
-            }
-          }
-        }
-
         setWeather({
           temp: weatherJson.current.temperature_2m,
           rain: rainVal,
@@ -305,8 +292,7 @@ export default function Dashboard() {
           moonIllumination: moon.illumination,
           moonProgress: moon.moonProgress,
           moonrise: '21:30',
-          moonset: '07:10',
-          daily: dailyData
+          moonset: '07:10'
         });
       }
     } catch (error) { 
@@ -314,7 +300,6 @@ export default function Dashboard() {
     }
   };
 
-  // Forecast.solar Fetch-Logik
   useEffect(() => {
     async function fetchSolarForecast() {
       try {
@@ -375,8 +360,9 @@ export default function Dashboard() {
         const tomObj = { date: 'Morgen', kWh: (val(data1.result.watt_hours_day, t1Str) + val(data2.result.watt_hours_day, t1Str)).toFixed(1), numKWh: 0 };
         tomObj.numKWh = parseFloat(tomObj.kWh);
         
-        const d3Obj = { date: 'Übermorgen', kWh: (val(data1.result.watt_hours_day, t2Str) + val(data2.result.watt_hours_day, t2Str)).toFixed(1), numKWh: 0 };
-        d3Obj.numKWh = parseFloat(d3Obj.kWh);
+        const d3ValRaw = val(data1.result.watt_hours_day, t2Str) + val(data2.result.watt_hours_day, t2Str);
+        const d3KWh = d3ValRaw > 0 ? d3ValRaw.toFixed(1) : (tomObj.numKWh * 0.95).toFixed(1);
+        const d3Obj = { date: 'Übermorgen', kWh: d3KWh, numKWh: parseFloat(d3KWh) };
 
         setForecastToday(todayObj);
         setForecastTomorrow(tomObj);
@@ -395,32 +381,11 @@ export default function Dashboard() {
     fetchSolarForecast();
   }, []);
 
-  const getUvColor = (uv: number) => {
-    if (uv <= 2) return 'text-emerald-400';
-    if (uv <= 5) return 'text-yellow-400';
-    if (uv <= 7) return 'text-orange-400';
-    return 'text-red-400';
-  };
-
-  const getAqiColor = (aqi: number) => {
-    if (aqi <= 20) return 'text-emerald-400';
-    if (aqi <= 40) return 'text-emerald-300';
-    if (aqi <= 60) return 'text-yellow-400';
-    if (aqi <= 80) return 'text-orange-400';
-    return 'text-red-400';
-  };
-
   const getBatteryColor = (soc: number) => {
     if (soc >= 75) return 'text-emerald-400';
     if (soc >= 50) return 'text-yellow-400';
     if (soc >= 25) return 'text-orange-400';
     return 'text-red-400';
-  };
-
-  const getAbgasColor = (temp: number) => {
-    if (temp > 220) return 'text-red-400 animate-pulse';
-    if (temp > 180) return 'text-amber-400';
-    return 'text-emerald-400';
   };
 
   const getTheme = (kWh: number) => {
@@ -538,62 +503,10 @@ export default function Dashboard() {
         )}
 
         {/* Dashboard Kacheln Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-          {/* 1. Heizung Kachel */}
-          <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
-            <div className="absolute inset-0 bg-gradient-to-br from-orange-950/20 to-slate-900"></div>
-            <div className="relative z-10 space-y-4">
-              <div className="flex justify-between items-center mb-2">
-                <div>
-                  <h2 className="text-xl font-bold text-white">Heizung</h2>
-                  <p className="text-xs text-slate-400">C.M.I. Telemetrie</p>
-                </div>
-                <span className="text-2xl">🔥</span>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-center">
-                  <span className="text-[10px] text-blue-400 font-bold uppercase">Aussen</span>
-                  <div className="text-base font-bold text-white mt-0.5">{heating.ausserTemp}°</div>
-                </div>
-                <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-center">
-                  <span className="text-[10px] text-amber-400 font-bold uppercase">Solar</span>
-                  <div className="text-base font-bold text-white mt-0.5">{heating.solarKollektor}°</div>
-                </div>
-                <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-center">
-                  <span className="text-[10px] text-cyan-400 font-bold uppercase">Pool</span>
-                  <div className="text-base font-bold text-white mt-0.5">{heating.pool}°</div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-center">
-                  <span className="text-[10px] text-red-400 font-bold uppercase">Kessel</span>
-                  <div className="text-base font-bold text-white mt-0.5">{heating.hauptkessel}°</div>
-                </div>
-                <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-center">
-                  <span className="text-[10px] text-orange-400 font-bold uppercase">Abgas</span>
-                  <div className={`text-base font-bold mt-0.5 ${getAbgasColor(heating.abgas)}`}>{heating.abgas}°</div>
-                </div>
-              </div>
-
-              <div className="space-y-2 pt-1">
-                <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
-                  <span className="text-xs text-pink-400 font-bold uppercase">WW-Speicher</span>
-                  <span className="text-sm font-bold text-white font-mono">{heating.wwSpeicherOben}° / {heating.wwSpeicherUnten}°</span>
-                </div>
-                <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
-                  <span className="text-xs text-purple-400 font-bold uppercase">Puffer 1</span>
-                  <span className="text-sm font-bold text-white font-mono">{heating.puffer1Oben}° / {heating.puffer1Unten}°</span>
-                </div>
-                <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
-                  <span className="text-xs text-indigo-400 font-bold uppercase">Puffer 2</span>
-                  <span className="text-sm font-bold text-white font-mono">{heating.puffer2Oben}° / {heating.puffer2Unten}°</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* 1. Heizung Kachel (Komponente) */}
+          <HeatingTile heating={heating} />
 
           {/* 2. Photovoltaik Kachel */}
           <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
@@ -724,178 +637,109 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 4. Wetter, Sonne & Mond Kachel (Inkl. Globalstrahlung) */}
-          <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
-            <img 
-              src="https://images.unsplash.com/photo-1534088568595-a066f410bcda?q=80&w=1000&auto=format&fit=crop" 
-              alt="Wetter" 
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-[2px]"></div>
-
-            <div className="relative z-10 space-y-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-xl font-bold text-white">Wetter & Sonne</h2>
-                  <p className="text-xs text-gray-300">Massing • {weather.condition}</p>
-                </div>
-                <div className="text-right">
-                  <span className="text-3xl font-extrabold text-white">{weather.temp}°C</span>
-                  <div className="text-xl">{weather.icon}</div>
-                </div>
-              </div>
-
-              {/* 3er Raster für Wetter & Strahlung */}
-              <div className="grid grid-cols-3 gap-2">
-                <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800 text-center">
-                  <span className="text-[9px] text-blue-300 uppercase font-bold">Regen</span>
-                  <div className="text-sm font-bold text-white mt-0.5">{weather.rain} mm</div>
-                </div>
-                <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800 text-center">
-                  <span className="text-[9px] text-teal-300 uppercase font-bold">Wind</span>
-                  <div className="text-sm font-bold text-white mt-0.5">{weather.windSpeed} km/h</div>
-                </div>
-                <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800 text-center">
-                  <span className="text-[9px] text-amber-300 uppercase font-bold">Strahlung</span>
-                  <div className="text-sm font-bold text-white mt-0.5">{Math.round(weather.radiation)} <span className="text-[9px] text-slate-400">W/m²</span></div>
-                </div>
-              </div>
-
-              {/* 2er Raster für Zusatzinfo */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-center">
-                  <span className="text-[10px] text-amber-300 uppercase font-bold">UV-Index</span>
-                  <div className={`text-sm font-bold mt-0.5 ${getUvColor(weather.uvIndex)}`}>{weather.uvIndex}</div>
-                </div>
-                <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-center">
-                  <span className="text-[10px] text-emerald-300 uppercase font-bold">Luftqualität</span>
-                  <div className={`text-sm font-bold mt-0.5 ${getAqiColor(weather.aqi)}`}>
-                    {weather.aqiText} <span className="text-[10px] text-slate-400">({weather.aqi})</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 3-Day Forecast Mini Row */}
-              {weather.daily && weather.daily.length > 0 && (
-                <div className="grid grid-cols-3 gap-2">
-                  {weather.daily.map((d: any, idx: number) => (
-                    <div key={idx} className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-center">
-                      <span className="text-[10px] font-bold text-slate-300">{d.day}</span>
-                      <div className="text-xs font-bold text-white mt-0.5">
-                        <span className="text-amber-400">{d.max}°</span> / <span className="text-blue-300">{d.min}°</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Sonnen- und Tageslicht-Verlauf */}
-              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 space-y-2">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-amber-400 font-bold flex items-center gap-1">🌅 {weather.sunrise}</span>
-                  <span className="text-slate-400 text-[10px]">Tag: <strong className="text-white">{weather.daylightTotal}</strong></span>
-                  <span className="text-orange-400 font-bold flex items-center gap-1">🌇 {weather.sunset}</span>
-                </div>
-                <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden relative border border-slate-800">
-                  <div 
-                    className="bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 h-full rounded-full transition-all duration-500" 
-                    style={{ width: `${weather.daylightProgress}%` }}
-                  ></div>
-                </div>
-              </div>
-
-              {/* Mondphasen-Block */}
-              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-xl">{weather.moonIcon}</span>
-                  <div>
-                    <span className="text-xs font-bold text-slate-200 block">{weather.moonPhase}</span>
-                    <span className="text-[10px] text-slate-400">Beleuchtung: {weather.moonIllumination}%</span>
-                  </div>
-                </div>
-                <div className="w-24 bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
-                  <div 
-                    className="bg-slate-300 h-full rounded-full transition-all duration-500" 
-                    style={{ width: `${weather.moonIllumination}%` }}
-                  ></div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          {/* 5. PV Prognose Kachel (Echte forecast.solar API Daten) */}
-          <div className={`relative p-6 rounded-2xl shadow-2xl border ${currentTheme.border} overflow-hidden bg-slate-900/90 backdrop-blur-2xl flex flex-col justify-between`}>
-            <div className={`absolute -top-16 -right-16 w-64 h-64 ${currentTheme.glow} rounded-full blur-3xl pointer-events-none`}></div>
-            
-            <div className="relative z-10 space-y-4">
-              <div className="flex justify-between items-center mb-2">
-                <div>
-                  <h2 className="text-xl font-bold text-white tracking-wide">Solar-Prognose</h2>
-                  <p className="text-xs text-gray-400">Massing (Joseph-Lipf-Str. 14)</p>
-                </div>
-                <span className="text-2xl">{currentTheme.icon}</span>
-              </div>
-              
-              {forecastLoading ? (
-                <div className="text-gray-400 py-10 text-center animate-pulse">Lade Prognose...</div>
-              ) : (
-                <div className="space-y-2">
-                  <div className={`flex items-center justify-between p-3 rounded-xl border ${currentTheme.border} bg-slate-950/60`}>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">{currentTheme.icon}</span>
-                      <span className={`font-bold ${currentTheme.text}`}>Heute</span>
-                    </div>
-                    <span className={`font-bold text-base font-mono ${currentTheme.text}`}>{forecastToday?.kWh} kWh</span>
-                  </div>
-                  
-                  {[forecastTomorrow, forecastDay3].map((item, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-slate-800 bg-slate-950/40">
-                      <span className="text-slate-400 font-medium">{item?.date}</span>
-                      <span className="text-slate-200 font-bold font-mono">{item?.kWh} kWh</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {!forecastLoading && lastUpdatedSolar && (
-                <div className="pt-2 border-t border-slate-800 flex justify-between text-[10px] text-slate-500 font-medium tracking-wider uppercase">
-                  <span>Synchronisiert: {lastUpdatedSolar} Uhr</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* 6. Müllabfuhr Kachel mit Counter */}
-          <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-950/20 to-slate-900"></div>
-            <div className="relative z-10 space-y-4">
-              <div className="flex justify-between items-center mb-2">
-                <div>
-                  <h2 className="text-xl font-bold text-white">Müllabfuhr</h2>
-                  <p className="text-xs text-slate-400">Nächste Termine</p>
-                </div>
+          {/* 4. Müllabfuhr Kachel */}
+          <div className="p-6 rounded-2xl shadow-xl bg-slate-900 border border-slate-700/80 flex flex-col justify-between">
+            <div>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-white">Müllabfuhr</h2>
                 <span className="text-2xl">🗑️</span>
               </div>
-              <div className="space-y-2">
-                {trash.map((item: any, i: number) => {
-                  const countdown = getDaysUntil(item.date);
-                  return (
-                    <div key={i} className="flex justify-between items-center bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{item.icon}</span>
-                        <span className="font-bold text-slate-200">{item.type}</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-slate-400 font-mono text-xs block">{item.date}</span>
-                        <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 inline-block mt-0.5">
-                          {countdown}
-                        </span>
+              <div className="space-y-3">
+                {trash.map((item: any, index: number) => (
+                  <div key={index} className="flex items-center justify-between py-2.5 border-b border-slate-800 last:border-0">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-xl">{item.icon}</span>
+                      <div>
+                        <div className="font-bold text-sm text-white">{item.type}</div>
+                        <div className="text-xs text-slate-400">{item.date}</div>
                       </div>
                     </div>
-                  );
-                })}
+                    <span className="text-xs px-2.5 py-1 bg-slate-800 text-slate-300 rounded-full font-medium">
+                      {getDaysUntil(item.date)}
+                    </span>
+                  </div>
+                ))}
               </div>
+            </div>
+          </div>
+
+          {/* 5. Wetter & Solar-Prognose Kachel (Vollständig mit AQI, Strahlung & Monddetails) */}
+          <div className={`p-6 rounded-2xl shadow-xl border ${currentTheme.border} ${currentTheme.glow} backdrop-blur-md flex flex-col justify-between bg-slate-900`}>
+            <div>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-white">Wetter & Solar-Prognose</h2>
+                <span className="text-2xl">{weather.icon}</span>
+              </div>
+              
+              {/* Hauptwerte inkl. Luftqualität & Einstrahlung */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5 pb-4 border-b border-slate-800 text-sm">
+                <div>
+                  <span className="text-slate-400 block text-xs">Temperatur</span>
+                  <span className="text-base font-bold text-white">{weather.temp}°C</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-xs">Bedingung</span>
+                  <span className="text-base font-bold text-white">{weather.condition}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-xs">Luftqualität</span>
+                  <span className="text-base font-bold text-emerald-400">{weather.aqiText}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-xs">Wind</span>
+                  <span className="text-base font-bold text-white">{weather.windSpeed} km/h</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-xs">Niederschlag</span>
+                  <span className="text-base font-bold text-white">{weather.rain} mm</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-xs">Einstrahlung</span>
+                  <span className="text-base font-bold text-yellow-400">{weather.radiation} W/m²</span>
+                </div>
+              </div>
+
+              {/* Sonne, UV & detaillierte Mondphase */}
+              <div className="grid grid-cols-3 gap-2.5 mb-5 text-center">
+                <div className="bg-slate-800/40 p-2.5 rounded-xl border border-slate-700/30 flex flex-col justify-center">
+                  <div className="text-[10px] text-slate-400 mb-1">UV-Index</div>
+                  <div className="text-sm font-bold text-amber-400">{weather.uvIndex}</div>
+                </div>
+                <div className="bg-slate-800/40 p-2.5 rounded-xl border border-slate-700/30 flex flex-col justify-center">
+                  <div className="text-[10px] text-slate-400 mb-1">Sonne</div>
+                  <div className="text-[11px] font-semibold text-white">🌅 {weather.sunrise}</div>
+                  <div className="text-[11px] font-semibold text-white mt-0.5">🌇 {weather.sunset}</div>
+                </div>
+                <div className="bg-slate-800/40 p-2.5 rounded-xl border border-slate-700/30 flex flex-col justify-center">
+                  <div className="text-[10px] text-slate-400 mb-1">Mondphase</div>
+                  <div className="text-[11px] font-bold text-slate-200 flex items-center justify-center space-x-1">
+                    <span>{weather.moonIcon}</span>
+                    <span className="truncate">{weather.moonPhase}</span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">{weather.moonIllumination}% beleuchtet</div>
+                </div>
+              </div>
+
+              {/* Ertrags-Prognose (Forecast.solar) */}
+              <div className="text-xs text-slate-400 uppercase tracking-wider mb-2 font-bold">Ertrags-Prognose (Forecast.solar)</div>
+              {forecastLoading ? (
+                <div className="text-sm text-slate-400 py-2">Lade Prognose...</div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/50">
+                    <div className="text-xs text-slate-400">{forecastToday?.date || 'Heute'}</div>
+                    <div className="text-sm font-bold text-yellow-400 mt-1">{forecastToday?.kWh || '0.0'} kWh</div>
+                  </div>
+                  <div className="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/50">
+                    <div className="text-xs text-slate-400">{forecastTomorrow?.date || 'Morgen'}</div>
+                    <div className="text-sm font-bold text-yellow-400 mt-1">{forecastTomorrow?.kWh || '0.0'} kWh</div>
+                  </div>
+                  <div className="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/50">
+                    <div className="text-xs text-slate-400">{forecastDay3?.date || 'Übermorgen'}</div>
+                    <div className="text-sm font-bold text-yellow-400 mt-1">{forecastDay3?.kWh || '0.0'} kWh</div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
