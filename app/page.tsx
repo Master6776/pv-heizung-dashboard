@@ -1,11 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
-import KebaTile from '@/components/KebaTile';
-import TrashTile from '@/components/TrashTile';
-import DashboardTimer from '@/components/DashboardTimer';
-import SolarForecastTile from '@/components/SolarForecastTile';
 
 const FALLBACK_DATA = {
   success: true,
@@ -17,6 +12,12 @@ const FALLBACK_DATA = {
     dailyExport: 15.2,
     currentConsumption: 850,
   },
+  trash: [
+    { type: 'Restmüll', date: '25.08.2026', icon: '🗑️' },
+    { type: 'Gelber Sack', date: '28.08.2026', icon: '🟡' },
+    { type: 'Bio', date: '30.08.2026', icon: '🌿' },
+    { type: 'Papier', date: '02.09.2026', icon: '📄' },
+  ],
   keba: {
     status: 'Nicht bereit',
     power: 0,
@@ -30,18 +31,29 @@ const FALLBACK_DATA = {
     switch2: { name: 'Poolpumpe', power: 450, relay: false, reachable: true, consumption: 1.2 },
   },
   heating: {
-    ausserTemp: 18.5,
-    solarKollektor: 65.2,
-    wwSpeicher: 54.0,
-    pool: 26.5,
-    puffer1Oben: 72.0,
-    puffer1Unten: 58.0,
-    puffer2Oben: 68.0,
-    puffer2Unten: 45.0,
-    fbhVorlauf: 31.5,
-    hkVorlauf: 42.0,
+    ausserTemp: 23.3,
+    solarKollektor: 59.8,
+    garage: 26.8,
+    pool: 25.0,
+    kesselLinks: 23.9,
+    hauptkessel: 73.6,
+    abgas: 185.0,
+    wwSpeicherOben: 46.2,
+    wwSpeicherUnten: 47.1,
+    puffer1Oben: 68.8,
+    puffer1Unten: 63.3,
+    puffer2Oben: 59.6,
+    puffer2Unten: 47.4,
+    fbhVorlauf: 26.0,
+    hkVorlauf: 22.5,
   }
 };
+
+interface DayForecast {
+  date: string;
+  kWh: string;
+  numKWh: number;
+}
 
 function calculateMoonData() {
   const now = new Date();
@@ -70,15 +82,38 @@ function calculateMoonData() {
   return { phase, icon, illumination, moonProgress };
 }
 
+function getDaysUntil(dateStr: string) {
+  const parts = dateStr.split('.');
+  if (parts.length !== 3) return '';
+  const day = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const year = parseInt(parts[2], 10);
+
+  const target = new Date(year, month, day);
+  const today = new Date();
+  
+  target.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  
+  const diffTime = target.getTime() - today.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) return 'Heute';
+  if (diffDays === 1) return 'Morgen';
+  if (diffDays > 1) return `in ${diffDays} Tagen`;
+  if (diffDays === -1) return 'Gestern';
+  return `vor ${Math.abs(diffDays)} Tagen`;
+}
+
 export default function Dashboard() {
   const [data, setData] = useState<any>(FALLBACK_DATA);
+  const [timeLeft, setTimeLeft] = useState<number>(300);
   const [history, setHistory] = useState<any[]>(() => [
     { time: 'Vor 15 Min', pv: 1200, house: 500, exportVal: 3 },
     { time: 'Vor 10 Min', pv: 1800, house: 650, exportVal: 8 },
     { time: 'Vor 5 Min', pv: 2400, house: 600, exportVal: 14 },
     { time: 'Live', pv: 3100, house: 750, exportVal: 19 },
   ]);
-  const [history7d, setHistory7d] = useState<any[]>([]);
   const [weather, setWeather] = useState<any>({ 
     temp: 19, 
     rain: 0, 
@@ -107,6 +142,13 @@ export default function Dashboard() {
   });
   const [alerts, setAlerts] = useState<any[]>([]);
 
+  // Forecast.solar States
+  const [forecastToday, setForecastToday] = useState<DayForecast | null>(null);
+  const [forecastTomorrow, setForecastTomorrow] = useState<DayForecast | null>(null);
+  const [forecastDay3, setForecastDay3] = useState<DayForecast | null>(null);
+  const [forecastLoading, setForecastLoading] = useState(true);
+  const [lastUpdatedSolar, setLastUpdatedSolar] = useState<string | null>(null);
+
   const fetchData = async () => {
     try {
       const res = await fetch('/api/metrics', { cache: 'no-store' });
@@ -126,6 +168,8 @@ export default function Dashboard() {
       }
     } catch {
       // Fallback
+    } finally {
+      setTimeLeft(300);
     }
   };
 
@@ -198,7 +242,7 @@ export default function Dashboard() {
         if (code >= 95) {
           activeAlerts.push({
             title: 'Unwetterwarnung: Gewitter',
-            desc: 'Schwere Gewitteraktivität in der Region Massing registriert.',
+            desc: 'Schwere Gewitteraktivität in der Region registriert.',
             type: 'danger'
           });
         }
@@ -270,6 +314,87 @@ export default function Dashboard() {
     }
   };
 
+  // Forecast.solar Fetch-Logik
+  useEffect(() => {
+    async function fetchSolarForecast() {
+      try {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const cachedData = localStorage.getItem('solar_forecast_data');
+        const cachedDate = localStorage.getItem('solar_forecast_date');
+        const cachedTimeStr = localStorage.getItem('solar_forecast_update_time');
+
+        if (cachedData && cachedDate === todayStr) {
+          const parsed = JSON.parse(cachedData);
+          setForecastToday(parsed.today);
+          setForecastTomorrow(parsed.tomorrow);
+          setForecastDay3(parsed.day3);
+          if (cachedTimeStr) setLastUpdatedSolar(cachedTimeStr);
+          setForecastLoading(false);
+          return;
+        }
+
+        const lat = 48.397;
+        const lon = 12.571;
+        const system1 = { kwp: 4.8, declination: 23, azimuth: 15 };
+        const system2 = { kwp: 3.7, declination: 20, azimuth: 100 };
+
+        const url1 = `https://api.forecast.solar/estimate/${lat}/${lon}/${system1.declination}/${system1.azimuth}/${system1.kwp}`;
+        const url2 = `https://api.forecast.solar/estimate/${lat}/${lon}/${system2.declination}/${system2.azimuth}/${system2.kwp}`;
+
+        const [res1, res2] = await Promise.all([fetch(url1), fetch(url2)]);
+        const data1 = await res1.json();
+        const data2 = await res2.json();
+
+        const nowTimeStr = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+        if (!res1.ok || !res2.ok || !data1?.result?.watt_hours_day) {
+          if (cachedData) {
+            const parsed = JSON.parse(cachedData);
+            setForecastToday(parsed.today);
+            setForecastTomorrow(parsed.tomorrow);
+            setForecastDay3(parsed.day3);
+          }
+          setForecastLoading(false);
+          return;
+        }
+
+        const getNextDate = (days: number) => {
+          const d = new Date();
+          d.setDate(d.getDate() + days);
+          return d.toISOString().split('T')[0];
+        };
+
+        const tStr = todayStr;
+        const t1Str = getNextDate(1);
+        const t2Str = getNextDate(2);
+        const val = (wh: any, date: string) => (wh[date] || 0) / 1000;
+
+        const todayObj = { date: 'Heute', kWh: (val(data1.result.watt_hours_day, tStr) + val(data2.result.watt_hours_day, tStr)).toFixed(1), numKWh: 0 };
+        todayObj.numKWh = parseFloat(todayObj.kWh);
+        
+        const tomObj = { date: 'Morgen', kWh: (val(data1.result.watt_hours_day, t1Str) + val(data2.result.watt_hours_day, t1Str)).toFixed(1), numKWh: 0 };
+        tomObj.numKWh = parseFloat(tomObj.kWh);
+        
+        const d3Obj = { date: 'Übermorgen', kWh: (val(data1.result.watt_hours_day, t2Str) + val(data2.result.watt_hours_day, t2Str)).toFixed(1), numKWh: 0 };
+        d3Obj.numKWh = parseFloat(d3Obj.kWh);
+
+        setForecastToday(todayObj);
+        setForecastTomorrow(tomObj);
+        setForecastDay3(d3Obj);
+        setLastUpdatedSolar(nowTimeStr);
+
+        localStorage.setItem('solar_forecast_data', JSON.stringify({ today: todayObj, tomorrow: tomObj, day3: d3Obj }));
+        localStorage.setItem('solar_forecast_date', todayStr);
+        localStorage.setItem('solar_forecast_update_time', nowTimeStr);
+      } catch (error) {
+        console.error('Forecast.solar error:', error);
+      } finally {
+        setForecastLoading(false);
+      }
+    }
+    fetchSolarForecast();
+  }, []);
+
   const getUvColor = (uv: number) => {
     if (uv <= 2) return 'text-emerald-400';
     if (uv <= 5) return 'text-yellow-400';
@@ -279,7 +404,7 @@ export default function Dashboard() {
 
   const getAqiColor = (aqi: number) => {
     if (aqi <= 20) return 'text-emerald-400';
-    if (aqi <= 40) return 'text-green-400';
+    if (aqi <= 40) return 'text-emerald-300';
     if (aqi <= 60) return 'text-yellow-400';
     if (aqi <= 80) return 'text-orange-400';
     return 'text-red-400';
@@ -291,6 +416,25 @@ export default function Dashboard() {
     if (soc >= 25) return 'text-orange-400';
     return 'text-red-400';
   };
+
+  const getAbgasColor = (temp: number) => {
+    if (temp > 220) return 'text-red-400 animate-pulse';
+    if (temp > 180) return 'text-amber-400';
+    return 'text-emerald-400';
+  };
+
+  const getTheme = (kWh: number) => {
+    if (kWh > 20) return { border: 'border-yellow-500/30', glow: 'bg-yellow-500/10', text: 'text-yellow-400', icon: '☀️' };
+    else if (kWh > 10) return { border: 'border-blue-500/30', glow: 'bg-blue-500/10', text: 'text-blue-400', icon: '⛅' };
+    return { border: 'border-slate-700/50', glow: 'bg-slate-500/5', text: 'text-slate-400', icon: '☁️' };
+  };
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft(prev => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     fetchData(); 
@@ -304,48 +448,35 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (!data) return;
+  const rawHeating = data?.heating || {};
 
-    const todayStr = new Date().toISOString().split('T')[0];
-    const currentYield = data?.pv?.dailyYield ?? 0;
-    const currentConsumption = data?.pv?.dailyConsumption ?? 0;
+  const heating = {
+    ...FALLBACK_DATA.heating,
+    ausserTemp: rawHeating.ausserTemp ?? rawHeating.Aussen ?? rawHeating.Aussentemperatur ?? FALLBACK_DATA.heating.ausserTemp,
+    solarKollektor: rawHeating.solarKollektor ?? rawHeating.Solar ?? rawHeating.Kollektor ?? FALLBACK_DATA.heating.solarKollektor,
+    garage: rawHeating.garage ?? rawHeating.Garage ?? FALLBACK_DATA.heating.garage,
+    pool: rawHeating.pool ?? rawHeating.Pool ?? FALLBACK_DATA.heating.pool,
+    kesselLinks: rawHeating.kesselRücklauf ?? rawHeating.kesselRuecklauf ?? rawHeating.kesselLinks ?? FALLBACK_DATA.heating.kesselLinks,
+    hauptkessel: rawHeating.kesselVorlauf ?? rawHeating.kessel ?? rawHeating.hauptkessel ?? FALLBACK_DATA.heating.hauptkessel,
+    abgas: rawHeating.kesselAbgas ?? rawHeating.abgas ?? rawHeating.Abgas ?? FALLBACK_DATA.heating.abgas,
+    wwSpeicherOben: rawHeating.wwSpeicher ?? rawHeating.wwSpeicherOben ?? FALLBACK_DATA.heating.wwSpeicherOben,
+    wwSpeicherUnten: rawHeating.wwSpeicherUnten ?? rawHeating['TSP. unten'] ?? FALLBACK_DATA.heating.wwSpeicherUnten,
+    puffer1Oben: rawHeating.puffer10ben ?? rawHeating.puffer1Oben ?? FALLBACK_DATA.heating.puffer1Oben,
+    puffer1Unten: rawHeating.puffer1Unten ?? FALLBACK_DATA.heating.puffer1Unten,
+    puffer2Oben: rawHeating.puffer20ben ?? rawHeating.puffer2Oben ?? FALLBACK_DATA.heating.puffer2Oben,
+    puffer2Unten: rawHeating.puffer2Unten ?? FALLBACK_DATA.heating.puffer2Unten,
+    fbhVorlauf: rawHeating.fbhVorlauf ?? FALLBACK_DATA.heating.fbhVorlauf,
+    hkVorlauf: rawHeating.hkVorlauf ?? FALLBACK_DATA.heating.hkVorlauf,
+  };
 
-    const savedHistory = JSON.parse(localStorage.getItem('pv_daily_history') || '{}');
-
-    savedHistory[todayStr] = {
-      yield: currentYield,
-      consumption: currentConsumption
-    };
-
-    localStorage.setItem('pv_daily_history', JSON.stringify(savedHistory));
-
-    const past7Days = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateKey = d.toISOString().split('T')[0];
-      const dayName = d.toLocaleDateString('de-DE', { weekday: 'short' }).replace('.', '');
-
-      const dayData = savedHistory[dateKey] || { yield: 0, consumption: 0 };
-
-      past7Days.push({
-        day: dayName,
-        yield: dayData.yield,
-        consumption: dayData.consumption,
-      });
-    }
-
-    setHistory7d(past7Days);
-  }, [data]);
-
-  const heating = { ...FALLBACK_DATA.heating, ...(data?.heating || {}) };
   const pv = { ...FALLBACK_DATA.pv, ...(data?.pv || {}) };
   const keba = { ...FALLBACK_DATA.keba, ...(data?.keba || {}) };
   const mystrom = {
     switch1: { ...FALLBACK_DATA.mystrom.switch1, ...(data?.mystrom?.switch1 || {}) },
     switch2: { ...FALLBACK_DATA.mystrom.switch2, ...(data?.mystrom?.switch2 || {}) }
   };
+
+  const trash = data?.trash || FALLBACK_DATA.trash;
 
   const dailyYield = pv.dailyYield ?? 0;
   const dailyExport = pv.dailyExport ?? 0;
@@ -354,6 +485,14 @@ export default function Dashboard() {
   const selfConsumptionRate = dailyYield > 0 ? Math.min(100, Math.round((selfConsumption / dailyYield) * 100)) : 0;
   const autarkyRate = dailyConsumption > 0 ? Math.min(100, Math.round((selfConsumption / dailyConsumption) * 100)) : 0;
 
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const currentTheme = forecastToday ? getTheme(forecastToday.numKWh) : { border: 'border-slate-700/50', glow: 'bg-slate-500/5', text: 'text-slate-400', icon: '☀️' };
+
   return (
     <main className="min-h-screen bg-slate-950 text-white p-6 md:p-10">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -361,7 +500,9 @@ export default function Dashboard() {
         <header className="flex justify-between items-center border-b border-slate-800 pb-4">
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Heizung & PV Dashboard</h1>
           <div className="flex items-center space-x-3">
-            <DashboardTimer />
+            <span className="text-xs text-slate-400">
+              Nächster Abruf in: <strong className="text-white font-mono">{formatTime(timeLeft)}</strong>
+            </span>
             <span className="text-xs px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20">
               Live aktiv
             </span>
@@ -396,9 +537,65 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Dashboard Kacheln Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
 
-          {/* 1. Photovoltaik Kachel */}
+          {/* 1. Heizung Kachel */}
+          <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
+            <div className="absolute inset-0 bg-gradient-to-br from-orange-950/20 to-slate-900"></div>
+            <div className="relative z-10 space-y-4">
+              <div className="flex justify-between items-center mb-2">
+                <div>
+                  <h2 className="text-xl font-bold text-white">Heizung</h2>
+                  <p className="text-xs text-slate-400">C.M.I. Telemetrie</p>
+                </div>
+                <span className="text-2xl">🔥</span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-center">
+                  <span className="text-[10px] text-blue-400 font-bold uppercase">Aussen</span>
+                  <div className="text-base font-bold text-white mt-0.5">{heating.ausserTemp}°</div>
+                </div>
+                <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-center">
+                  <span className="text-[10px] text-amber-400 font-bold uppercase">Solar</span>
+                  <div className="text-base font-bold text-white mt-0.5">{heating.solarKollektor}°</div>
+                </div>
+                <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-center">
+                  <span className="text-[10px] text-cyan-400 font-bold uppercase">Pool</span>
+                  <div className="text-base font-bold text-white mt-0.5">{heating.pool}°</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-center">
+                  <span className="text-[10px] text-red-400 font-bold uppercase">Kessel</span>
+                  <div className="text-base font-bold text-white mt-0.5">{heating.hauptkessel}°</div>
+                </div>
+                <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-center">
+                  <span className="text-[10px] text-orange-400 font-bold uppercase">Abgas</span>
+                  <div className={`text-base font-bold mt-0.5 ${getAbgasColor(heating.abgas)}`}>{heating.abgas}°</div>
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-1">
+                <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
+                  <span className="text-xs text-pink-400 font-bold uppercase">WW-Speicher</span>
+                  <span className="text-sm font-bold text-white font-mono">{heating.wwSpeicherOben}° / {heating.wwSpeicherUnten}°</span>
+                </div>
+                <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
+                  <span className="text-xs text-purple-400 font-bold uppercase">Puffer 1</span>
+                  <span className="text-sm font-bold text-white font-mono">{heating.puffer1Oben}° / {heating.puffer1Unten}°</span>
+                </div>
+                <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
+                  <span className="text-xs text-indigo-400 font-bold uppercase">Puffer 2</span>
+                  <span className="text-sm font-bold text-white font-mono">{heating.puffer2Oben}° / {heating.puffer2Unten}°</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Photovoltaik Kachel */}
           <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
             <img 
               src="https://images.unsplash.com/photo-1613665813446-82a78c468a1d?q=80&w=1000&auto=format&fit=crop" 
@@ -446,7 +643,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 2. Wallbox & Plugs Kachel */}
+          {/* 3. Wallbox & Plugs Kachel */}
           <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
             <img 
               src="https://images.unsplash.com/photo-1558002038-1055907df827?q=80&w=1000&auto=format&fit=crop" 
@@ -527,7 +724,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 3. Wetter, Sonne & Mond Kachel */}
+          {/* 4. Wetter, Sonne & Mond Kachel (Inkl. Globalstrahlung) */}
           <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
             <img 
               src="https://images.unsplash.com/photo-1534088568595-a066f410bcda?q=80&w=1000&auto=format&fit=crop" 
@@ -537,182 +734,172 @@ export default function Dashboard() {
             <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-[2px]"></div>
 
             <div className="relative z-10 space-y-4">
-              <div className="flex justify-between items-center mb-1">
+              <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-xl font-bold text-white">Wetter & Sonne</h2>
-                  <p className="text-xs text-gray-300">84323 Massing</p>
+                  <p className="text-xs text-gray-300">Massing • {weather.condition}</p>
                 </div>
-                <span className="text-2xl">{weather.icon}</span>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between items-center py-1.5 border-b border-white/10">
-                  <span className="text-gray-300 text-sm">Temperatur:</span>
-                  <span className="text-white font-bold text-base">{weather.temp} °C</span>
-                </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-white/10">
-                  <span className="text-gray-300 text-sm">Niederschlag:</span>
-                  <span className="text-blue-300 font-bold text-base">{weather.rain} mm</span>
-                </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-white/10">
-                  <span className="text-gray-300 text-sm">Wind:</span>
-                  <span className="text-teal-300 font-bold text-base">{weather.windSpeed} km/h</span>
-                </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-white/10">
-                  <span className="text-gray-300 text-sm">Strahlung:</span>
-                  <span className="text-amber-300 font-bold text-base">{weather.radiation} W/m²</span>
-                </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-white/10">
-                  <span className="text-gray-300 text-sm">UV-Index:</span>
-                  <span className={`font-bold text-base ${getUvColor(weather.uvIndex)}`}>{weather.uvIndex}</span>
-                </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-white/10">
-                  <span className="text-gray-300 text-sm">Luftqualität:</span>
-                  <span className={`font-bold text-sm ${getAqiColor(weather.aqi)}`}>{weather.aqiText}</span>
+                <div className="text-right">
+                  <span className="text-3xl font-extrabold text-white">{weather.temp}°C</span>
+                  <div className="text-xl">{weather.icon}</div>
                 </div>
               </div>
 
-              <div className="bg-slate-900/90 p-3 rounded-xl border border-white/10 backdrop-blur-md space-y-2 shadow-inner">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center space-x-1.5">
-                    <span>✨</span>
-                    <span className="text-xs text-amber-300 font-bold uppercase tracking-wider">Sonnenstand</span>
-                  </div>
-                  <span className="text-amber-400 font-extrabold text-xs">{Math.round(weather.daylightProgress)}%</span>
+              {/* 3er Raster für Wetter & Strahlung */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800 text-center">
+                  <span className="text-[9px] text-blue-300 uppercase font-bold">Regen</span>
+                  <div className="text-sm font-bold text-white mt-0.5">{weather.rain} mm</div>
                 </div>
-
-                <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-white/10 relative shadow-inner">
-                  <div 
-                    className="bg-gradient-to-r from-amber-600 via-yellow-400 to-amber-300 h-full rounded-full transition-all duration-700 shadow-[0_0_10px_rgba(251,191,36,0.4)]"
-                    style={{ width: `${weather.daylightProgress}%` }}
-                  ></div>
+                <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800 text-center">
+                  <span className="text-[9px] text-teal-300 uppercase font-bold">Wind</span>
+                  <div className="text-sm font-bold text-white mt-0.5">{weather.windSpeed} km/h</div>
                 </div>
+                <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800 text-center">
+                  <span className="text-[9px] text-amber-300 uppercase font-bold">Strahlung</span>
+                  <div className="text-sm font-bold text-white mt-0.5">{Math.round(weather.radiation)} <span className="text-[9px] text-slate-400">W/m²</span></div>
+                </div>
+              </div>
 
-                <div className="flex justify-between items-center text-[11px] text-gray-300 pt-0.5 font-medium">
-                  <div className="flex items-center space-x-1">
-                    <span>🌄</span>
-                    <span className="text-amber-300 font-bold">{weather.sunrise}</span>
-                  </div>
-                  <span className="text-gray-400 font-semibold">{weather.daylightTotal} Licht</span>
-                  <div className="flex items-center space-x-1">
-                    <span>🌇</span>
-                    <span className="text-orange-300 font-bold">{weather.sunset}</span>
+              {/* 2er Raster für Zusatzinfo */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-center">
+                  <span className="text-[10px] text-amber-300 uppercase font-bold">UV-Index</span>
+                  <div className={`text-sm font-bold mt-0.5 ${getUvColor(weather.uvIndex)}`}>{weather.uvIndex}</div>
+                </div>
+                <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-center">
+                  <span className="text-[10px] text-emerald-300 uppercase font-bold">Luftqualität</span>
+                  <div className={`text-sm font-bold mt-0.5 ${getAqiColor(weather.aqi)}`}>
+                    {weather.aqiText} <span className="text-[10px] text-slate-400">({weather.aqi})</span>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-slate-900/90 p-3 rounded-xl border border-white/10 backdrop-blur-md space-y-2 shadow-inner">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center space-x-1.5">
-                    <span>{weather.moonIcon}</span>
-                    <span className="text-xs text-indigo-300 font-bold uppercase tracking-wider">Mondverlauf</span>
-                  </div>
-                  <span className="text-indigo-400 font-extrabold text-xs">{weather.moonIllumination}% beleuchtet</span>
-                </div>
-
-                <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-white/10 relative shadow-inner">
-                  <div 
-                    className="bg-gradient-to-r from-indigo-900 via-indigo-500 to-slate-200 h-full rounded-full transition-all duration-700 shadow-[0_0_10px_rgba(129,140,248,0.4)]"
-                    style={{ width: `${weather.moonProgress}%` }}
-                  ></div>
-                </div>
-
-                <div className="flex justify-between items-center text-[11px] text-gray-300 pt-0.5 font-medium">
-                  <div className="flex items-center space-x-1">
-                    <span>🌙</span>
-                    <span className="text-indigo-300 font-bold">{weather.moonrise}</span>
-                  </div>
-                  <span className="text-indigo-200 font-semibold">{weather.moonPhase}</span>
-                  <div className="flex items-center space-x-1">
-                    <span>🌑</span>
-                    <span className="text-slate-400 font-bold">{weather.moonset}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <div className="text-gray-300 text-xs mb-1.5">Vorschau</div>
+              {/* 3-Day Forecast Mini Row */}
+              {weather.daily && weather.daily.length > 0 && (
                 <div className="grid grid-cols-3 gap-2">
                   {weather.daily.map((d: any, idx: number) => (
-                    <div key={idx} className="bg-slate-900/90 p-2 rounded-xl border border-white/10 text-center backdrop-blur-md">
-                      <div className="text-gray-300 text-xs">{d.day}</div>
-                      <div className="text-white font-bold text-xs mt-1">{d.max}° / {d.min}°</div>
-                      <div className="text-blue-300 text-xs mt-0.5">💧 {d.pop}%</div>
+                    <div key={idx} className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-center">
+                      <span className="text-[10px] font-bold text-slate-300">{d.day}</span>
+                      <div className="text-xs font-bold text-white mt-0.5">
+                        <span className="text-amber-400">{d.max}°</span> / <span className="text-blue-300">{d.min}°</span>
+                      </div>
                     </div>
                   ))}
                 </div>
+              )}
+
+              {/* Sonnen- und Tageslicht-Verlauf */}
+              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-amber-400 font-bold flex items-center gap-1">🌅 {weather.sunrise}</span>
+                  <span className="text-slate-400 text-[10px]">Tag: <strong className="text-white">{weather.daylightTotal}</strong></span>
+                  <span className="text-orange-400 font-bold flex items-center gap-1">🌇 {weather.sunset}</span>
+                </div>
+                <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden relative border border-slate-800">
+                  <div 
+                    className="bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${weather.daylightProgress}%` }}
+                  ></div>
+                </div>
               </div>
+
+              {/* Mondphasen-Block */}
+              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl">{weather.moonIcon}</span>
+                  <div>
+                    <span className="text-xs font-bold text-slate-200 block">{weather.moonPhase}</span>
+                    <span className="text-[10px] text-slate-400">Beleuchtung: {weather.moonIllumination}%</span>
+                  </div>
+                </div>
+                <div className="w-24 bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
+                  <div 
+                    className="bg-slate-300 h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${weather.moonIllumination}%` }}
+                  ></div>
+                </div>
+              </div>
+
             </div>
           </div>
 
-          {/* 4. Heizung C.M.I. Kachel */}
+          {/* 5. PV Prognose Kachel (Echte forecast.solar API Daten) */}
+          <div className={`relative p-6 rounded-2xl shadow-2xl border ${currentTheme.border} overflow-hidden bg-slate-900/90 backdrop-blur-2xl flex flex-col justify-between`}>
+            <div className={`absolute -top-16 -right-16 w-64 h-64 ${currentTheme.glow} rounded-full blur-3xl pointer-events-none`}></div>
+            
+            <div className="relative z-10 space-y-4">
+              <div className="flex justify-between items-center mb-2">
+                <div>
+                  <h2 className="text-xl font-bold text-white tracking-wide">Solar-Prognose</h2>
+                  <p className="text-xs text-gray-400">Massing (Joseph-Lipf-Str. 14)</p>
+                </div>
+                <span className="text-2xl">{currentTheme.icon}</span>
+              </div>
+              
+              {forecastLoading ? (
+                <div className="text-gray-400 py-10 text-center animate-pulse">Lade Prognose...</div>
+              ) : (
+                <div className="space-y-2">
+                  <div className={`flex items-center justify-between p-3 rounded-xl border ${currentTheme.border} bg-slate-950/60`}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{currentTheme.icon}</span>
+                      <span className={`font-bold ${currentTheme.text}`}>Heute</span>
+                    </div>
+                    <span className={`font-bold text-base font-mono ${currentTheme.text}`}>{forecastToday?.kWh} kWh</span>
+                  </div>
+                  
+                  {[forecastTomorrow, forecastDay3].map((item, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-slate-800 bg-slate-950/40">
+                      <span className="text-slate-400 font-medium">{item?.date}</span>
+                      <span className="text-slate-200 font-bold font-mono">{item?.kWh} kWh</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {!forecastLoading && lastUpdatedSolar && (
+                <div className="pt-2 border-t border-slate-800 flex justify-between text-[10px] text-slate-500 font-medium tracking-wider uppercase">
+                  <span>Synchronisiert: {lastUpdatedSolar} Uhr</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 6. Müllabfuhr Kachel mit Counter */}
           <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
-            <img 
-              src="https://images.unsplash.com/photo-1581092160607-ee22621dd758?q=80&w=1000&auto=format&fit=crop" 
-              alt="Heizungsraum Keller" 
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-[2px]"></div>
-
-            <div className="relative z-10">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-white">Heizung (C.M.I.)</h2>
-                <span className="text-2xl">🔥</span>
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-950/20 to-slate-900"></div>
+            <div className="relative z-10 space-y-4">
+              <div className="flex justify-between items-center mb-2">
+                <div>
+                  <h2 className="text-xl font-bold text-white">Müllabfuhr</h2>
+                  <p className="text-xs text-slate-400">Nächste Termine</p>
+                </div>
+                <span className="text-2xl">🗑️</span>
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-slate-900/90 p-2.5 rounded-xl border border-white/10 backdrop-blur-md">
-                  <div className="text-gray-300 text-xs">Außen</div>
-                  <div className="text-white font-bold text-base">{heating.ausserTemp ?? 0} °C</div>
-                </div>
-                <div className="bg-slate-900/90 p-2.5 rounded-xl border border-white/10 backdrop-blur-md">
-                  <div className="text-gray-300 text-xs">Solar Koll.</div>
-                  <div className="text-white font-bold text-base">{heating.solarKollektor ?? 0} °C</div>
-                </div>
-                <div className="bg-slate-900/90 p-2.5 rounded-xl border border-white/10 backdrop-blur-md">
-                  <div className="text-gray-300 text-xs">WW Speicher</div>
-                  <div className="text-white font-bold text-base">{heating.wwSpeicher ?? 0} °C</div>
-                </div>
-                <div className="bg-slate-900/90 p-2.5 rounded-xl border border-white/10 backdrop-blur-md">
-                  <div className="text-gray-300 text-xs">Pool</div>
-                  <div className="text-white font-bold text-base">{heating.pool ?? 0} °C</div>
-                </div>
-                <div className="bg-slate-900/90 p-2.5 rounded-xl border border-white/10 backdrop-blur-md">
-                  <div className="text-gray-300 text-xs">Puffer 1 Oben</div>
-                  <div className="text-white font-bold text-base">{heating.puffer1Oben ?? 0} °C</div>
-                </div>
-                <div className="bg-slate-900/90 p-2.5 rounded-xl border border-white/10 backdrop-blur-md">
-                  <div className="text-gray-300 text-xs">Puffer 1 Unten</div>
-                  <div className="text-white font-bold text-base">{heating.puffer1Unten ?? 0} °C</div>
-                </div>
-                <div className="bg-slate-900/90 p-2.5 rounded-xl border border-white/10 backdrop-blur-md">
-                  <div className="text-gray-300 text-xs">Puffer 2 Oben</div>
-                  <div className="text-white font-bold text-base">{heating.puffer2Oben ?? 0} °C</div>
-                </div>
-                <div className="bg-slate-900/90 p-2.5 rounded-xl border border-white/10 backdrop-blur-md">
-                  <div className="text-gray-300 text-xs">Puffer 2 Unten</div>
-                  <div className="text-white font-bold text-base">{heating.puffer2Unten ?? 0} °C</div>
-                </div>
-                <div className="bg-slate-900/90 p-2.5 rounded-xl border border-white/10 backdrop-blur-md">
-                  <div className="text-gray-300 text-xs">FBH Vorlauf</div>
-                  <div className="text-white font-bold text-base">{heating.fbhVorlauf ?? 0} °C</div>
-                </div>
-                <div className="bg-slate-900/90 p-2.5 rounded-xl border border-white/10 backdrop-blur-md">
-                  <div className="text-gray-300 text-xs">HK Vorlauf</div>
-                  <div className="text-white font-bold text-base">{heating.hkVorlauf ?? 0} °C</div>
-                </div>
+              <div className="space-y-2">
+                {trash.map((item: any, i: number) => {
+                  const countdown = getDaysUntil(item.date);
+                  return (
+                    <div key={i} className="flex justify-between items-center bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{item.icon}</span>
+                        <span className="font-bold text-slate-200">{item.type}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-slate-400 font-mono text-xs block">{item.date}</span>
+                        <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 inline-block mt-0.5">
+                          {countdown}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
-
-          {/* 5. Solar-Prognose Kachel (am Ende) */}
-          <SolarForecastTile />
-
-          {/* 6. Müllabfuhr Kachel (am Ende) */}
-          <TrashTile />
 
         </div>
-
       </div>
     </main>
   );

@@ -2,10 +2,14 @@ import { NextResponse } from 'next/server';
 // @ts-ignore
 import ModbusRTU from 'modbus-serial';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 let cachedHeating = {
   ausserTemp: 0,
   solarKollektor: 0,
   wwSpeicher: 0,
+  wwSpeicherUnten: 0,
   puffer1Oben: 0,
   puffer1Unten: 0,
   hkVorlauf: 0,
@@ -17,6 +21,9 @@ let cachedHeating = {
   pool: 0,
   kesselAbgas: 0,
 };
+
+let cachedRawInputs1: any[] = [];
+let cachedRawNetworkInputs1: any[] = [];
 
 let cachedHeating37 = {
   eingang1: 0,
@@ -61,7 +68,7 @@ async function fetchHeatingData() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    const res = await fetch(`${cmiHost}/INCLUDE/api.cgi?jsonnode=${cmiNode}&jsonparam=I,O`, {
+    const res = await fetch(`${cmiHost}/INCLUDE/api.cgi?jsonnode=${cmiNode}&jsonparam=I,O,Na`, {
       headers: { Authorization: authHeader },
       cache: 'no-store',
       signal: controller.signal,
@@ -71,6 +78,10 @@ async function fetchHeatingData() {
     if (res.ok) {
       const cmiData = await res.json();
       const inputs = cmiData?.Data?.Inputs || cmiData?.inputs || cmiData?.Data?.inputs || [];
+      const netInputs = cmiData?.Data?.['Network Analog'] || cmiData?.NetworkInputs || [];
+      
+      cachedRawInputs1 = inputs;
+      cachedRawNetworkInputs1 = netInputs;
 
       const getIn = (inputNumber: number, arrayIndex: number) => {
         let item = inputs.find((i: any) => i?.Number === inputNumber || i?.number === inputNumber);
@@ -84,20 +95,30 @@ async function fetchHeatingData() {
         return 0;
       };
 
+      const getNetIn = (num: number) => {
+        const item = netInputs.find((i: any) => i?.Number === num || i?.number === num);
+        if (!item) return 0;
+        if (typeof item === 'number') return item;
+        if (typeof item.Value === 'number') return item.Value;
+        if (item.Value && typeof item.Value.Value === 'number') return item.Value.Value;
+        return item.value ?? 0;
+      };
+
       cachedHeating = {
         solarKollektor: getIn(1, 0),
         wwSpeicher: getIn(2, 1),
+        wwSpeicherUnten: getIn(16, 15), // Eingang 16 für WW Unten
         puffer1Oben: getIn(3, 2),
         puffer1Unten: getIn(4, 3),
         hkVorlauf: getIn(5, 4),
         fbhVorlauf: getIn(6, 5),
         kesselRücklauf: getIn(7, 6),
-        kesselVorlauf: getIn(8, 7),
+        kesselVorlauf: getNetIn(3) || getIn(8, 7),
         puffer2Oben: getIn(9, 8),
         puffer2Unten: getIn(10, 9),
         ausserTemp: getIn(11, 10),
         pool: getIn(13, 12),
-        kesselAbgas: 0,
+        kesselAbgas: getNetIn(1),
       };
     }
   } catch (e: any) {
@@ -124,8 +145,6 @@ async function fetchHeatingData37() {
 
     if (res.ok) {
       const cmiData = await res.json();
-      console.log("[CMI Node 37 ROHDATEN]:", JSON.stringify(cmiData));
-
       const inputs = cmiData?.Data?.Inputs || cmiData?.inputs || cmiData?.Data?.inputs || [];
 
       const getIn37 = (inputNumber: number, arrayIndex: number) => {
@@ -158,6 +177,7 @@ async function fetchPvData() {
   try {
     const client = new ModbusRTU();
     client.setTimeout(3000);
+    // Hier verwenden wir wieder die funktionierende IP aus dem Backup: 192.168.2.102
     await client.connectTCP(process.env.SUNGROW_HOST || '192.168.2.102', { port: 502 });
     client.setID(1);
 
@@ -278,6 +298,8 @@ export async function GET() {
   return NextResponse.json({
     success: true,
     heating: cachedHeating,
+    rawInputs1: cachedRawInputs1,
+    rawNetworkInputs1: cachedRawNetworkInputs1,
     heating37: cachedHeating37,
     pv: cachedPv,
     mystrom: cachedMystrom,
