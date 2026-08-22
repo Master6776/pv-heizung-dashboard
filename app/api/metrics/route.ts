@@ -107,7 +107,7 @@ async function fetchHeatingData() {
       cachedHeating = {
         solarKollektor: getIn(1, 0),
         wwSpeicher: getIn(2, 1),
-        wwSpeicherUnten: getIn(16, 15), // Eingang 16 für WW Unten
+        wwSpeicherUnten: getIn(16, 15), 
         puffer1Oben: getIn(3, 2),
         puffer1Unten: getIn(4, 3),
         hkVorlauf: getIn(5, 4),
@@ -177,7 +177,6 @@ async function fetchPvData() {
   try {
     const client = new ModbusRTU();
     client.setTimeout(3000);
-    // Hier verwenden wir wieder die funktionierende IP aus dem Backup: 192.168.2.102
     await client.connectTCP(process.env.SUNGROW_HOST || '192.168.2.102', { port: 502 });
     client.setID(1);
 
@@ -282,7 +281,7 @@ async function fetchKebaData() {
     };
     client.close();
   } catch (e: any) {
-    cachedKeba.reachable = false;
+    cachedKeba.reachable =false;
   }
 }
 

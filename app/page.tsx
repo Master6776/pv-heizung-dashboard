@@ -84,29 +84,6 @@ function calculateMoonData() {
   return { phase, icon, illumination, moonProgress };
 }
 
-function getDaysUntil(dateStr: string) {
-  const parts = dateStr.split('.');
-  if (parts.length !== 3) return '';
-  const day = parseInt(parts[0], 10);
-  const month = parseInt(parts[1], 10) - 1;
-  const year = parseInt(parts[2], 10);
-
-  const target = new Date(year, month, day);
-  const today = new Date();
-  
-  target.setHours(0, 0, 0, 0);
-  today.setHours(0, 0, 0, 0);
-  
-  const diffTime = target.getTime() - today.getTime();
-  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-  
-  if (diffDays === 0) return 'Heute';
-  if (diffDays === 1) return 'Morgen';
-  if (diffDays > 1) return `in ${diffDays} Tagen`;
-  if (diffDays === -1) return 'Gestern';
-  return `vor ${Math.abs(diffDays)} Tagen`;
-}
-
 export default function Dashboard() {
   const [data, setData] = useState<any>(FALLBACK_DATA);
   const [timeLeft, setTimeLeft] = useState<number>(300);
@@ -126,6 +103,9 @@ export default function Dashboard() {
     aqiText: 'Gut',
     radiation: 450,
     uvIndex: 4,
+    humidity: 50,
+    clouds: 40,
+    pressure: 1013,
     sunrise: '06:00',
     sunset: '20:30',
     daylightProgress: 50,
@@ -177,7 +157,7 @@ export default function Dashboard() {
 
   const fetchWeather = async () => {
     try {
-      const weatherRes = await fetch('https://api.open-meteo.com/v1/forecast?latitude=48.3833&longitude=12.5667&current=temperature_2m,precipitation,weather_code,is_day,shortwave_radiation,uv_index,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,sunrise,sunset&timezone=auto');
+      const weatherRes = await fetch('https://api.open-meteo.com/v1/forecast?latitude=48.3833&longitude=12.5667&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,is_day,shortwave_radiation,uv_index,wind_speed_10m,cloud_cover,surface_pressure&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,sunrise,sunset&timezone=auto');
       const weatherJson = await weatherRes.json();
 
       const aqiRes = await fetch('https://air-quality-api.open-meteo.com/v1/air-quality?latitude=48.3833&longitude=12.5667&current=european_aqi');
@@ -190,6 +170,10 @@ export default function Dashboard() {
         const uvVal = weatherJson.current.uv_index ?? 0;
         const windVal = weatherJson.current.wind_speed_10m ?? 0;
         const rainVal = weatherJson.current.precipitation ?? 0;
+        
+        const humidityVal = weatherJson.current.relative_humidity_2m ?? 0;
+        const cloudsVal = weatherJson.current.cloud_cover ?? 0;
+        const pressureVal = weatherJson.current.surface_pressure ?? 0;
 
         const sunriseStr = weatherJson.daily?.sunrise?.[0] || '';
         const sunsetStr = weatherJson.daily?.sunset?.[0] || '';
@@ -240,7 +224,6 @@ export default function Dashboard() {
           weatherIcon = '⛈️';
         }
 
-        // 3-Tages-Wettervorhersage parsen
         const dailyTimes = weatherJson.daily?.time || [];
         const maxTemps = weatherJson.daily?.temperature_2m_max || [];
         const minTemps = weatherJson.daily?.temperature_2m_min || [];
@@ -309,6 +292,9 @@ export default function Dashboard() {
           aqiText: aqiText,
           radiation: radiationVal,
           uvIndex: uvVal,
+          humidity: humidityVal,
+          clouds: cloudsVal,
+          pressure: pressureVal,
           sunrise: sunriseTime,
           sunset: sunsetTime,
           daylightProgress: daylightProgress,
@@ -467,7 +453,6 @@ export default function Dashboard() {
     switch1: { ...FALLBACK_DATA.mystrom.switch1, ...(data?.mystrom?.switch1 || {}) },
     switch2: { ...FALLBACK_DATA.mystrom.switch2, ...(data?.mystrom?.switch2 || {}) }
   };
-
   const trash = data?.trash || FALLBACK_DATA.trash;
 
   const dailyYield = pv.dailyYield ?? 0;
@@ -482,8 +467,6 @@ export default function Dashboard() {
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
-
-  const currentTheme = forecastToday ? getTheme(forecastToday.numKWh) : { border: 'border-slate-700/50', glow: 'bg-slate-500/5', text: 'text-slate-400', icon: '☀️' };
 
   return (
     <main className="min-h-screen bg-slate-950 text-white p-6 md:p-10">
@@ -674,134 +657,56 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 4. Müllabfuhr Kachel */}
+          {/* 4. Wetter Kachel */}
           <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
             <img 
-              src="https://images.unsplash.com/photo-1532996122724-e3c3fa4a0d55?q=80&w=1000&auto=format&fit=crop" 
+              src="https://images.unsplash.com/photo-1534088568595-a066f410bcda?q=80&w=1000&auto=format&fit=crop" 
               alt="" 
               className="absolute inset-0 w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-[2px]"></div>
-
             <div className="relative z-10">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-white">Müllabfuhr</h2>
-                <span className="text-2xl">🗑️</span>
-              </div>
-              <div className="space-y-3">
-                {trash.map((item: any, index: number) => (
-                  <div key={index} className="flex items-center justify-between py-2.5 border-b border-white/10 last:border-0">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-xl">{item.icon}</span>
-                      <div>
-                        <div className="font-bold text-sm text-white">{item.type}</div>
-                        <div className="text-xs text-gray-300">{item.date}</div>
-                      </div>
-                    </div>
-                    <span className="text-xs px-2.5 py-1 bg-white/10 text-gray-200 rounded-full font-medium">
-                      {getDaysUntil(item.date)}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <WeatherTile weather={weather} />
             </div>
           </div>
 
-          {/* 5. Wetter & Solar-Prognose Kachel */}
-          <div className={`relative p-6 rounded-2xl shadow-xl border ${currentTheme.border} ${currentTheme.glow} backdrop-blur-md flex flex-col justify-between overflow-hidden bg-slate-900`}>
+          {/* 5. PV-Prognose Kachel */}
+          <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
             <img 
-              src="https://images.unsplash.com/photo-1534088568595-a066fa41088a?q=80&w=1000&auto=format&fit=crop" 
+              src="https://images.unsplash.com/photo-1509391365330-0a68ead84f45?q=80&w=1000&auto=format&fit=crop" 
               alt="" 
               className="absolute inset-0 w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-[2px]"></div>
 
-            <div className="relative z-10">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-white">Wetter & Solar-Prognose</h2>
-                <span className="text-2xl">{weather.icon}</span>
-              </div>
-              
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4 pb-4 border-b border-white/10 text-sm">
+            <div className="relative z-10 space-y-4">
+              <div className="flex justify-between items-center mb-2">
                 <div>
-                  <span className="text-gray-300 block text-xs">Temperatur</span>
-                  <span className="text-base font-bold text-white">{weather.temp}°C</span>
+                  <h2 className="text-xl font-bold text-white">PV-Prognose</h2>
+                  <p className="text-xs text-gray-300">Forecast.solar</p>
                 </div>
-                <div>
-                  <span className="text-gray-300 block text-xs">Bedingung</span>
-                  <span className="text-base font-bold text-white">{weather.condition}</span>
-                </div>
-                <div>
-                  <span className="text-gray-300 block text-xs">Luftqualität</span>
-                  <span className="text-base font-bold text-emerald-400">{weather.aqiText}</span>
-                </div>
-                <div>
-                  <span className="text-gray-300 block text-xs">Wind</span>
-                  <span className="text-base font-bold text-white">{weather.windSpeed} km/h</span>
-                </div>
-                <div>
-                  <span className="text-gray-300 block text-xs">Niederschlag</span>
-                  <span className="text-base font-bold text-white">{weather.rain} mm</span>
-                </div>
-                <div>
-                  <span className="text-gray-300 block text-xs">Einstrahlung</span>
-                  <span className="text-base font-bold text-yellow-400">{weather.radiation} W/m²</span>
-                </div>
+                <span className="text-2xl">📈</span>
               </div>
 
-              {/* 3-Tages-Wettervorhersage */}
-              <div className="mb-4 pb-4 border-b border-white/10">
-                <div className="text-xs text-gray-300 uppercase tracking-wider mb-2 font-bold">3-Tages-Wettervorhersage</div>
-                <div className="grid grid-cols-3 gap-2">
-                  {weather.dailyWeather?.map((day: any, idx: number) => (
-                    <div key={idx} className="bg-slate-900/60 p-2.5 rounded-xl border border-white/10 text-center flex flex-col justify-between">
-                      <div className="text-xs text-gray-300 font-semibold">{day.day}</div>
-                      <div className="text-xl my-1">{day.icon}</div>
-                      <div className="text-xs font-bold text-white">
-                        <span className="text-amber-400">{day.max}°</span> <span className="text-gray-400 font-normal">/ {day.min}°</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2.5 mb-5 text-center">
-                <div className="bg-slate-900/60 p-2.5 rounded-xl border border-white/10 flex flex-col justify-center">
-                  <div className="text-[10px] text-gray-300 mb-1">UV-Index</div>
-                  <div className="text-sm font-bold text-amber-400">{weather.uvIndex}</div>
-                </div>
-                <div className="bg-slate-900/60 p-2.5 rounded-xl border border-white/10 flex flex-col justify-center">
-                  <div className="text-[10px] text-gray-300 mb-1">Sonne</div>
-                  <div className="text-[11px] font-semibold text-white">🌅 {weather.sunrise}</div>
-                  <div className="text-[11px] font-semibold text-white mt-0.5">🌇 {weather.sunset}</div>
-                </div>
-                <div className="bg-slate-900/60 p-2.5 rounded-xl border border-white/10 flex flex-col justify-center">
-                  <div className="text-[10px] text-gray-300 mb-1">Mondphase</div>
-                  <div className="text-[11px] font-bold text-gray-100 flex items-center justify-center space-x-1">
-                    <span>{weather.moonIcon}</span>
-                    <span className="truncate">{weather.moonPhase}</span>
-                  </div>
-                  <div className="text-[10px] text-gray-300 mt-0.5">{weather.moonIllumination}% beleuchtet</div>
-                </div>
-              </div>
-
-              <div className="text-xs text-gray-300 uppercase tracking-wider mb-2 font-bold">Ertrags-Prognose (Forecast.solar)</div>
               {forecastLoading ? (
-                <div className="text-sm text-gray-300 py-2">Lade Prognose...</div>
+                <div className="text-center py-8 text-gray-400 text-sm">Lade Prognose...</div>
               ) : (
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="bg-slate-900/60 p-2.5 rounded-xl border border-white/10">
-                    <div className="text-xs text-gray-300">{forecastToday?.date || 'Heute'}</div>
-                    <div className="text-sm font-bold text-yellow-400 mt-1">{forecastToday?.kWh || '0.0'} kWh</div>
-                  </div>
-                  <div className="bg-slate-900/60 p-2.5 rounded-xl border border-white/10">
-                    <div className="text-xs text-gray-300">{forecastTomorrow?.date || 'Morgen'}</div>
-                    <div className="text-sm font-bold text-yellow-400 mt-1">{forecastTomorrow?.kWh || '0.0'} kWh</div>
-                  </div>
-                  <div className="bg-slate-900/60 p-2.5 rounded-xl border border-white/10">
-                    <div className="text-xs text-gray-300">{forecastDay3?.date || 'Übermorgen'}</div>
-                    <div className="text-sm font-bold text-yellow-400 mt-1">{forecastDay3?.kWh || '0.0'} kWh</div>
-                  </div>
+                <div className="space-y-3">
+                  {[forecastToday, forecastTomorrow, forecastDay3].map((f, i) => {
+                    if (!f) return null;
+                    const th = getTheme(f.numKWh);
+                    return (
+                      <div key={i} className={`p-3 rounded-xl border ${th.border} ${th.glow} flex items-center justify-between backdrop-blur-md`}>
+                        <div className="flex items-center space-x-3">
+                          <span className="text-2xl">{th.icon}</span>
+                          <div>
+                            <span className="text-xs font-bold text-gray-300 block">{f.date}</span>
+                            <span className="text-lg font-bold text-white">{f.kWh} kWh</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
