@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import HeatingTile from '@/components/HeatingTile';
 import WeatherTile from '@/components/WeatherTile';
+import TrashTile from '@/components/TrashTile';
 
 const FALLBACK_DATA = {
   success: true,
@@ -14,12 +15,6 @@ const FALLBACK_DATA = {
     dailyExport: 15.2,
     currentConsumption: 850,
   },
-  trash: [
-    { type: 'Restmüll', date: '25.08.2026', icon: '🗑️' },
-    { type: 'Gelber Sack', date: '28.08.2026', icon: '🟡' },
-    { type: 'Bio', date: '30.08.2026', icon: '🌿' },
-    { type: 'Papier', date: '02.09.2026', icon: '📄' },
-  ],
   keba: {
     status: 'Nicht bereit',
     power: 0,
@@ -335,7 +330,7 @@ export default function Dashboard() {
         const lon = 12.571;
         const system1 = { kwp: 4.8, declination: 23, azimuth: 15 };
         const system2 = { kwp: 3.7, declination: 20, azimuth: 100 };
-        const system3 = { kwp: 2.0, declination: 20, azimuth: -79 }; // 79 Grad Ost (-79)
+        const system3 = { kwp: 2.0, declination: 20, azimuth: -79 };
 
         const url1 = `https://api.forecast.solar/estimate/${lat}/${lon}/${system1.declination}/${system1.azimuth}/${system1.kwp}`;
         const url2 = `https://api.forecast.solar/estimate/${lat}/${lon}/${system2.declination}/${system2.azimuth}/${system2.kwp}`;
@@ -464,7 +459,6 @@ export default function Dashboard() {
     switch1: { ...FALLBACK_DATA.mystrom.switch1, ...(data?.mystrom?.switch1 || {}) },
     switch2: { ...FALLBACK_DATA.mystrom.switch2, ...(data?.mystrom?.switch2 || {}) }
   };
-  const trash = data?.trash || FALLBACK_DATA.trash;
 
   const dailyYield = pv.dailyYield ?? 0;
   const dailyExport = pv.dailyExport ?? 0;
@@ -523,7 +517,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Dashboard Kacheln Grid */}
+        {/* Dashboard Kacheln Grid (Alle 6 Kacheln) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
           {/* 1. Heizung Kachel */}
@@ -670,60 +664,69 @@ export default function Dashboard() {
 
           {/* 4. Wetter Kachel */}
           <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
-            <img 
-              src="https://images.unsplash.com/photo-1534088568595-a066f410bcda?q=80&w=1000&auto=format&fit=crop" 
-              alt="" 
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-[2px]"></div>
-            <div className="relative z-10">
-              <WeatherTile weather={weather} />
-            </div>
+            <WeatherTile weather={weather} />
           </div>
 
-          {/* 5. PV-Prognose Kachel */}
-          <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
-            <img 
-              src="https://images.unsplash.com/photo-1509391365330-0a68ead84f45?q=80&w=1000&auto=format&fit=crop" 
-              alt="" 
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-[2px]"></div>
+          {/* 5. Müllabfuhr Kachel */}
+          <TrashTile />
 
+          {/* 6. Solar-Prognose Kachel */}
+          <div className="relative p-6 rounded-2xl shadow-xl border border-slate-700/80 flex flex-col justify-between overflow-hidden bg-slate-900">
             <div className="relative z-10 space-y-4">
               <div className="flex justify-between items-center mb-2">
                 <div>
-                  <h2 className="text-xl font-bold text-white">PV-Prognose</h2>
-                  <p className="text-xs text-gray-300">Forecast.solar (3 Ausrichtungen)</p>
+                  <h2 className="text-xl font-bold text-white">Solar-Prognose</h2>
+                  <p className="text-xs text-gray-300">Forecast.solar</p>
                 </div>
                 <span className="text-2xl">📈</span>
               </div>
 
               {forecastLoading ? (
-                <div className="text-center py-8 text-gray-400 text-sm">Lade Prognose...</div>
+                <div className="text-center py-6 text-gray-400 text-sm">Lade Prognose...</div>
               ) : (
                 <div className="space-y-3">
-                  {[forecastToday, forecastTomorrow, forecastDay3].map((f, i) => {
-                    if (!f) return null;
-                    const th = getTheme(f.numKWh);
-                    return (
-                      <div key={i} className={`p-3 rounded-xl border ${th.border} ${th.glow} flex items-center justify-between backdrop-blur-md`}>
-                        <div className="flex items-center space-x-3">
-                          <span className="text-2xl">{th.icon}</span>
-                          <div>
-                            <span className="text-xs font-bold text-gray-300 block">{f.date}</span>
-                            <span className="text-lg font-bold text-white">{f.kWh} kWh</span>
-                          </div>
-                        </div>
+                  {forecastToday && (
+                    <div className={`p-3 rounded-xl border ${getTheme(forecastToday.numKWh).border} ${getTheme(forecastToday.numKWh).glow} flex justify-between items-center`}>
+                      <div>
+                        <div className="text-xs text-gray-400">{forecastToday.date}</div>
+                        <div className="text-lg font-bold text-white">{forecastToday.kWh} kWh</div>
                       </div>
-                    );
-                  })}
+                      <span className="text-2xl">{getTheme(forecastToday.numKWh).icon}</span>
+                    </div>
+                  )}
+
+                  {forecastTomorrow && (
+                    <div className={`p-3 rounded-xl border ${getTheme(forecastTomorrow.numKWh).border} ${getTheme(forecastTomorrow.numKWh).glow} flex justify-between items-center`}>
+                      <div>
+                        <div className="text-xs text-gray-400">{forecastTomorrow.date}</div>
+                        <div className="text-lg font-bold text-white">{forecastTomorrow.kWh} kWh</div>
+                      </div>
+                      <span className="text-2xl">{getTheme(forecastTomorrow.numKWh).icon}</span>
+                    </div>
+                  )}
+
+                  {forecastDay3 && (
+                    <div className={`p-3 rounded-xl border ${getTheme(forecastDay3.numKWh).border} ${getTheme(forecastDay3.numKWh).glow} flex justify-between items-center`}>
+                      <div>
+                        <div className="text-xs text-gray-400">{forecastDay3.date}</div>
+                        <div className="text-lg font-bold text-white">{forecastDay3.kWh} kWh</div>
+                      </div>
+                      <span className="text-2xl">{getTheme(forecastDay3.numKWh).icon}</span>
+                    </div>
+                  )}
+
+                  {lastUpdatedSolar && (
+                    <div className="text-[10px] text-gray-500 text-right pt-1">
+                      Aktualisiert: {lastUpdatedSolar} Uhr
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
 
         </div>
+
       </div>
     </main>
   );
