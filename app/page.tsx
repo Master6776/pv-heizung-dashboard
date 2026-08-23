@@ -335,17 +335,20 @@ export default function Dashboard() {
         const lon = 12.571;
         const system1 = { kwp: 4.8, declination: 23, azimuth: 15 };
         const system2 = { kwp: 3.7, declination: 20, azimuth: 100 };
+        const system3 = { kwp: 2.0, declination: 20, azimuth: -79 }; // 79 Grad Ost (-79)
 
         const url1 = `https://api.forecast.solar/estimate/${lat}/${lon}/${system1.declination}/${system1.azimuth}/${system1.kwp}`;
         const url2 = `https://api.forecast.solar/estimate/${lat}/${lon}/${system2.declination}/${system2.azimuth}/${system2.kwp}`;
+        const url3 = `https://api.forecast.solar/estimate/${lat}/${lon}/${system3.declination}/${system3.azimuth}/${system3.kwp}`;
 
-        const [res1, res2] = await Promise.all([fetch(url1), fetch(url2)]);
+        const [res1, res2, res3] = await Promise.all([fetch(url1), fetch(url2), fetch(url3)]);
         const data1 = await res1.json();
         const data2 = await res2.json();
+        const data3 = await res3.json();
 
         const nowTimeStr = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
-        if (!res1.ok || !res2.ok || !data1?.result?.watt_hours_day) {
+        if (!res1.ok || !res2.ok || !res3.ok || !data1?.result?.watt_hours_day) {
           if (cachedData) {
             const parsed = JSON.parse(cachedData);
             setForecastToday(parsed.today);
@@ -367,13 +370,21 @@ export default function Dashboard() {
         const t2Str = getNextDate(2);
         const val = (wh: any, date: string) => (wh[date] || 0) / 1000;
 
-        const todayObj = { date: 'Heute', kWh: (val(data1.result.watt_hours_day, tStr) + val(data2.result.watt_hours_day, tStr)).toFixed(1), numKWh: 0 };
+        const todayObj = { 
+          date: 'Heute', 
+          kWh: (val(data1.result.watt_hours_day, tStr) + val(data2.result.watt_hours_day, tStr) + val(data3.result.watt_hours_day, tStr)).toFixed(1), 
+          numKWh: 0 
+        };
         todayObj.numKWh = parseFloat(todayObj.kWh);
         
-        const tomObj = { date: 'Morgen', kWh: (val(data1.result.watt_hours_day, t1Str) + val(data2.result.watt_hours_day, t1Str)).toFixed(1), numKWh: 0 };
+        const tomObj = { 
+          date: 'Morgen', 
+          kWh: (val(data1.result.watt_hours_day, t1Str) + val(data2.result.watt_hours_day, t1Str) + val(data3.result.watt_hours_day, t1Str)).toFixed(1), 
+          numKWh: 0 
+        };
         tomObj.numKWh = parseFloat(tomObj.kWh);
         
-        const d3ValRaw = val(data1.result.watt_hours_day, t2Str) + val(data2.result.watt_hours_day, t2Str);
+        const d3ValRaw = val(data1.result.watt_hours_day, t2Str) + val(data2.result.watt_hours_day, t2Str) + val(data3.result.watt_hours_day, t2Str);
         const d3KWh = d3ValRaw > 0 ? d3ValRaw.toFixed(1) : (tomObj.numKWh * 0.95).toFixed(1);
         const d3Obj = { date: 'Übermorgen', kWh: d3KWh, numKWh: parseFloat(d3KWh) };
 
@@ -683,7 +694,7 @@ export default function Dashboard() {
               <div className="flex justify-between items-center mb-2">
                 <div>
                   <h2 className="text-xl font-bold text-white">PV-Prognose</h2>
-                  <p className="text-xs text-gray-300">Forecast.solar</p>
+                  <p className="text-xs text-gray-300">Forecast.solar (3 Ausrichtungen)</p>
                 </div>
                 <span className="text-2xl">📈</span>
               </div>
