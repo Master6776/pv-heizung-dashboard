@@ -18,7 +18,6 @@ export default function TrashTile() {
   useEffect(() => {
     async function loadTrashData() {
       try {
-        // Korrigiert: Lädt nun korrekt die abfuhr.ics aus dem public-Ordner
         const res = await fetch('/abfuhr.ics');
         if (!res.ok) {
           throw new Error(`Datei /abfuhr.ics nicht gefunden (HTTP ${res.status}).`);
@@ -62,14 +61,15 @@ export default function TrashTile() {
                 if (daysLeft >= 0) {
                   let color = 'bg-slate-700 text-slate-200 border-slate-500';
                   const lower = currentSummary.toLowerCase();
+                  
                   if (lower.includes('restmüll') || lower.includes('restmuell')) {
                     color = 'bg-zinc-700 text-zinc-100 border-zinc-500';
                   } else if (lower.includes('bio')) {
                     color = 'bg-amber-800/80 text-amber-200 border-amber-600';
                   } else if (lower.includes('papier') || lower.includes('tonne')) {
                     color = 'bg-blue-800/80 text-blue-200 border-blue-600';
-                  } else if (lower.includes('gelb') || lower.includes('sack')) {
-                    color = 'bg-yellow-600/80 text-yellow-100 border-yellow-500';
+                  } else if (lower.includes('gelb') || lower.includes('sack') || lower.includes('wertstoff')) {
+                    color = 'bg-yellow-500/90 text-black font-semibold border-yellow-400';
                   }
 
                   events.push({
@@ -87,7 +87,8 @@ export default function TrashTile() {
         }
 
         events.sort((a, b) => a.daysLeft - b.daysLeft);
-        setNextEvents(events.slice(0, 3));
+        setNextEvents(events.slice(0, 4)); // Zeigt die nächsten 4 Termine an
+        setErrorStatus(null);
       } catch (e: any) {
         console.error('Fehler beim Laden der Mülltermine:', e);
         setErrorStatus(e.message || 'Unbekannter Fehler');
@@ -97,6 +98,8 @@ export default function TrashTile() {
     }
 
     loadTrashData();
+    const interval = setInterval(loadTrashData, 3600000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -131,7 +134,7 @@ export default function TrashTile() {
                   <div className="text-sm font-bold text-white">{item.summary}</div>
                   <div className="text-xs text-gray-400">{item.date}</div>
                 </div>
-                <span className={`text-xs px-2.5 py-1 rounded-full border font-bold ${item.color}`}>
+                <span className={`text-xs px-2.5 py-1 rounded-full border ${item.color}`}>
                   {item.daysLeft === 0 ? 'Heute!' : item.daysLeft === 1 ? 'Morgen' : `in ${item.daysLeft} Tagen`}
                 </span>
               </div>
