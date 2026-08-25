@@ -40,7 +40,8 @@ let cachedPv = {
   dailyConsumption: 0,
   batterySoc: 0,
   dailyExport: 0,
-  dailyImport: 0
+  dailyImport: 0,
+  energyAnalysis: 0 // Neu: Im Hintergrund berechneter Wert
 };
 
 let cachedMystrom = {
@@ -196,7 +197,7 @@ async function fetchPvData() {
       }
     } catch (e) {}
 
-    // 2. Tagesertrag (Register 5002) - angepasst auf ca. 11 kWh
+    // 2. Tagesertrag (Register 5002)
     try {
       const resYield = await client.readInputRegisters(5002, 1);
       if (resYield?.data && resYield.data.length > 0) {
@@ -204,7 +205,7 @@ async function fetchPvData() {
       }
     } catch (e) {}
 
-    // 3. Täglicher Hausverbrauch (Register 13016) - angepasst auf ca. 18.2 kWh
+    // 3. Täglicher Hausverbrauch (Register 13016)
     try {
       const resConsumption = await client.readInputRegisters(13016, 1);
       if (resConsumption?.data && resConsumption.data.length > 0) {
@@ -221,13 +222,18 @@ async function fetchPvData() {
       }
     } catch (e) {}
 
+    // Im Hintergrund berechnet: Energieanalyse = Tagesertrag - Hausverbrauch (bzw. umgekehrt je nach Vorzeichenkonvention)
+    // Wenn Gesamtverbrauch - Energieanalyse = Tagesertrag => Energieanalyse = Tagesertrag - Gesamtverbrauch
+    const calculatedEnergyAnalysis = Number((dailyYieldVal - dailyConsumptionVal).toFixed(1));
+
     cachedPv = {
       currentPower: Number(powerVal),
       dailyYield: Number(dailyYieldVal.toFixed(1)),
       dailyConsumption: Number(dailyConsumptionVal.toFixed(1)),
       batterySoc: Number(batterySocVal), 
       dailyExport: 0.0,          
-      dailyImport: 1.1           
+      dailyImport: 1.1,
+      energyAnalysis: calculatedEnergyAnalysis // Wird jetzt jedes Mal frisch im Hintergrund berechnet
     };
 
     client.close();
