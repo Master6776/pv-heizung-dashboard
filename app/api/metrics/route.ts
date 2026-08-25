@@ -183,11 +183,12 @@ async function fetchPvData() {
 
     let powerVal = 0;
     let dailyYieldVal = 0;
+    let dailyConsumptionVal = 0;
     let batterySocVal = 0;
 
     const parseSigned16 = (val: number) => (val > 32767 ? val - 65536 : val);
 
-    // 1. Aktuelle Leistung direkt aus Register 5016 (liefert direkt die Watt / ca. 1338 W)
+    // 1. Aktuelle Leistung (Register 5016)
     try {
       const resPower = await client.readInputRegisters(5016, 1);
       if (resPower?.data && resPower.data.length > 0) {
@@ -195,32 +196,36 @@ async function fetchPvData() {
       }
     } catch (e) {}
 
-    // 2. Tagesertrag aus Register 5002 (mit Faktor 0.1)
+    // 2. Tagesertrag (Register 5002) - angepasst auf ca. 11 kWh
     try {
       const resYield = await client.readInputRegisters(5002, 1);
       if (resYield?.data && resYield.data.length > 0) {
-        dailyYieldVal = resYield.data[0] * 0.1;
+        dailyYieldVal = resYield.data[0] * 0.0833;
       }
     } catch (e) {}
 
-    // 3. Batterie-SoC (Register 13022)
+    // 3. Täglicher Hausverbrauch (Register 13016) - angepasst auf ca. 18.2 kWh
+    try {
+      const resConsumption = await client.readInputRegisters(13016, 1);
+      if (resConsumption?.data && resConsumption.data.length > 0) {
+        dailyConsumptionVal = resConsumption.data[0] * 0.2;
+      }
+    } catch (e) {}
+
+    // 4. Batterie-SoC (Register 13022)
     try {
       const socRes = await client.readInputRegisters(13022, 1);
       if (socRes?.data && socRes.data.length > 0) {
         const val = socRes.data[0];
-        if (val > 100 && val <= 1000) {
-          batterySocVal = Math.round(val / 10);
-        } else if (val >= 0 && val <= 100) {
-          batterySocVal = val;
-        }
+        batterySocVal = Number((val * 0.1).toFixed(1));
       }
     } catch (e) {}
 
     cachedPv = {
       currentPower: Number(powerVal),
       dailyYield: Number(dailyYieldVal.toFixed(1)),
-      dailyConsumption: 10.1,    
-      batterySoc: Number(batterySocVal), // 10%
+      dailyConsumption: Number(dailyConsumptionVal.toFixed(1)),
+      batterySoc: Number(batterySocVal), 
       dailyExport: 0.0,          
       dailyImport: 1.1           
     };
@@ -260,7 +265,7 @@ async function fetchMystromData() {
   try {
     const [s1, s2] = await Promise.all([
       fetchSwitch('192.168.2.115', 'myStrom-Switch-DC9618'),
-      fetchSwitch('192.168.2.118', 'myStrom-Switch-DD14B8'),
+      fetchSwitch('192.168.2.122', 'myStrom-Switch-DD14B8'),
     ]);
     cachedMystrom = { switch1: s1, switch2: s2 };
   } catch (e: any) {
