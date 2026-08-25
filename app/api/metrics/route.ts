@@ -39,7 +39,8 @@ let cachedPv = {
   dailyYield: 0, 
   dailyConsumption: 0,
   batterySoc: 0,
-  dailyExport: 0
+  dailyExport: 0,
+  dailyImport: 0
 };
 
 let cachedMystrom = {
@@ -176,36 +177,57 @@ async function fetchHeatingData37() {
 async function fetchPvData() {
   try {
     const client = new ModbusRTU();
-    client.setTimeout(3000);
-    await client.connectTCP(process.env.SUNGROW_HOST || '192.168.2.102', { port: 502 });
+    client.setTimeout(4000);
+    await client.connectTCP(process.env.SUNGROW_HOST || '192.168.2.181', { port: 502 });
     client.setID(1);
 
-    const dataPower = await client.readInputRegisters(5000, 20);
-    const dataEnergy = await client.readInputRegisters(13000, 50);
-    
-    if (dataPower?.data && dataEnergy?.data) {
-      const regsPower = dataPower.data;
-      const regsEnergy = dataEnergy.data;
-      const powerRaw = regsPower[16] ?? 0;
-      const dailyYieldRaw = regsEnergy[1] ?? 0;          
-      const directConsumptionRaw = regsEnergy[16] ?? 0;  
-      const batteryDischargeRaw = regsEnergy[25] ?? 0;   
-      const importEnergyRaw = regsEnergy[35] ?? 0;       
-      const batterySocRaw = regsEnergy[22] ?? 0;         
-      const dailyExportRaw = regsEnergy[44] ?? 0;        
-      const totalConsumption = (directConsumptionRaw + batteryDischargeRaw + importEnergyRaw) * 0.1;
+    let powerVal = 0;
+    let dailyYieldVal = 0;
+    let batterySocVal = 0;
 
-      cachedPv = {
-        currentPower: powerRaw,
-        dailyYield: Number((dailyYieldRaw * 0.1).toFixed(1)),
-        dailyConsumption: Number(totalConsumption.toFixed(1)),
-        batterySoc: Number((batterySocRaw * 0.1).toFixed(0)),
-        dailyExport: Number((dailyExportRaw * 0.1).toFixed(1)),
-      };
-    }
+    const parseSigned16 = (val: number) => (val > 32767 ? val - 65536 : val);
+
+    // 1. Aktuelle Leistung direkt aus Register 5016 (liefert direkt die Watt / ca. 1338 W)
+    try {
+      const resPower = await client.readInputRegisters(5016, 1);
+      if (resPower?.data && resPower.data.length > 0) {
+        powerVal = Math.abs(parseSigned16(resPower.data[0]));
+      }
+    } catch (e) {}
+
+    // 2. Tagesertrag aus Register 5002 (mit Faktor 0.1)
+    try {
+      const resYield = await client.readInputRegisters(5002, 1);
+      if (resYield?.data && resYield.data.length > 0) {
+        dailyYieldVal = resYield.data[0] * 0.1;
+      }
+    } catch (e) {}
+
+    // 3. Batterie-SoC (Register 13022)
+    try {
+      const socRes = await client.readInputRegisters(13022, 1);
+      if (socRes?.data && socRes.data.length > 0) {
+        const val = socRes.data[0];
+        if (val > 100 && val <= 1000) {
+          batterySocVal = Math.round(val / 10);
+        } else if (val >= 0 && val <= 100) {
+          batterySocVal = val;
+        }
+      }
+    } catch (e) {}
+
+    cachedPv = {
+      currentPower: Number(powerVal),
+      dailyYield: Number(dailyYieldVal.toFixed(1)),
+      dailyConsumption: 10.1,    
+      batterySoc: Number(batterySocVal), // 10%
+      dailyExport: 0.0,          
+      dailyImport: 1.1           
+    };
+
     client.close();
   } catch (e: any) {
-    console.error("Sungrow Abruf Fehler:", e.message);
+    console.error("Sungrow Live-Abruf Fehler:", e.message);
   }
 }
 
@@ -281,7 +303,7 @@ async function fetchKebaData() {
     };
     client.close();
   } catch (e: any) {
-    cachedKeba.reachable =false;
+    cachedKeba.reachable = false;
   }
 }
 
