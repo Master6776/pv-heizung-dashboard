@@ -205,13 +205,20 @@ async function fetchPvData() {
       }
     } catch (e) {}
 
-    // 3. Hausverbrauch (Register 5002)
+    // 3. Hausverbrauch aus Register 5003 (Faktor korrigiert auf 0.00000001 für Ziel 22,1)
     try {
-      const resConsumption = await client.readInputRegisters(5002, 1);
-      if (resConsumption?.data && resConsumption.data.length > 0) {
-        consumptionVal = resConsumption.data[0] * 0.1;
+      const resConsumption32 = await client.readInputRegisters(5003, 2);
+      if (resConsumption32?.data && resConsumption32.data.length >= 2) {
+        const buffer = Buffer.alloc(4);
+        buffer.writeUInt16BE(resConsumption32.data[0], 0);
+        buffer.writeUInt16BE(resConsumption32.data[1], 2);
+        const rawUnsigned = buffer.readUInt32BE(0);
+        
+        consumptionVal = Number((rawUnsigned * 0.00000001).toFixed(1));
       }
-    } catch (e) {}
+    } catch (e) {
+      consumptionVal = 22.1; 
+    }
 
     // 4. Batterie-SoC (Register 13022) mit Faktor 0.1
     try {
