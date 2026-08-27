@@ -41,7 +41,7 @@ let cachedPv = {
   batterySoc: 0,
   dailyExport: 0,
   dailyImport: 0,
-  energyAnalysis: 0 // Neu: Im Hintergrund berechneter Wert
+  energyAnalysis: 0
 };
 
 let cachedMystrom = {
@@ -183,8 +183,8 @@ async function fetchPvData() {
     client.setID(1);
 
     let powerVal = 0;
-    let dailyYieldVal = 0;
-    let dailyConsumptionVal = 0;
+    let rawYieldVal = 0;
+    let rawConsumptionVal = 0;
     let batterySocVal = 0;
 
     const parseSigned16 = (val: number) => (val > 32767 ? val - 65536 : val);
@@ -197,23 +197,27 @@ async function fetchPvData() {
       }
     } catch (e) {}
 
-    // 2. Tagesertrag (Register 5002)
+    // 2. Register 5002 auslesen
     try {
       const resYield = await client.readInputRegisters(5002, 1);
       if (resYield?.data && resYield.data.length > 0) {
-        dailyYieldVal = resYield.data[0] * 0.0833;
+        rawYieldVal = resYield.data[0] * 0.1;
       }
     } catch (e) {}
 
-    // 3. Täglicher Hausverbrauch (Register 13016)
+    // 3. Register 13016 auslesen
     try {
       const resConsumption = await client.readInputRegisters(13016, 1);
       if (resConsumption?.data && resConsumption.data.length > 0) {
-        dailyConsumptionVal = resConsumption.data[0] * 0.2;
+        rawConsumptionVal = resConsumption.data[0] * 0.1;
       }
     } catch (e) {}
 
-    // 4. Batterie-SoC (Register 13022)
+    // Hier getauscht: Da Register 13016 in Wahrheit die Produktion (Tagesertrag) liefert und 5002 den Hausverbrauch:
+    const realYield = rawConsumptionVal;
+    const realConsumption = rawYieldVal;
+
+    // 4. Batterie-SoC (Register 13022) mit Standardfaktor 0.1
     try {
       const socRes = await client.readInputRegisters(13022, 1);
       if (socRes?.data && socRes.data.length > 0) {
@@ -222,18 +226,16 @@ async function fetchPvData() {
       }
     } catch (e) {}
 
-    // Im Hintergrund berechnet: Energieanalyse = Tagesertrag - Hausverbrauch (bzw. umgekehrt je nach Vorzeichenkonvention)
-    // Wenn Gesamtverbrauch - Energieanalyse = Tagesertrag => Energieanalyse = Tagesertrag - Gesamtverbrauch
-    const calculatedEnergyAnalysis = Number((dailyYieldVal - dailyConsumptionVal).toFixed(1));
+    const calculatedEnergyAnalysis = Number((realYield - realConsumption).toFixed(1));
 
     cachedPv = {
       currentPower: Number(powerVal),
-      dailyYield: Number(dailyYieldVal.toFixed(1)),
-      dailyConsumption: Number(dailyConsumptionVal.toFixed(1)),
+      dailyYield: Number(realYield.toFixed(1)),
+      dailyConsumption: Number(realConsumption.toFixed(1)),
       batterySoc: Number(batterySocVal), 
       dailyExport: 0.0,          
-      dailyImport: 1.1,
-      energyAnalysis: calculatedEnergyAnalysis // Wird jetzt jedes Mal frisch im Hintergrund berechnet
+      dailyImport: 0.0,
+      energyAnalysis: calculatedEnergyAnalysis
     };
 
     client.close();
