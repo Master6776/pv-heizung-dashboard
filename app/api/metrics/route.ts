@@ -213,11 +213,11 @@ async function fetchPvData() {
       }
     } catch (e) {}
 
-    // Hier getauscht: Da Register 13016 in Wahrheit die Produktion (Tagesertrag) liefert und 5002 den Hausverbrauch:
+    // Korrektur: Werte getauscht, damit Ertrag und Verbrauch exakt zur App passen
     const realYield = rawConsumptionVal;
     const realConsumption = rawYieldVal;
 
-    // 4. Batterie-SoC (Register 13022) mit Standardfaktor 0.1
+    // 4. Batterie-SoC (Register 13022) mit Faktor 0.1
     try {
       const socRes = await client.readInputRegisters(13022, 1);
       if (socRes?.data && socRes.data.length > 0) {

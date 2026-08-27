@@ -64,9 +64,10 @@ export async function GET() {
     results['reg_5038_Test2'] = await readReg16(5038);
     results['reg_5082_Test3'] = await readReg16(5082);
     results['reg_5778_Test4'] = await readReg16(5778);
+    results['reg_13016_Test5'] = await readReg16(13016);
     results['reg_13022_BatterySoC'] = await readReg16(13022);
 
-    // Manche Energieregister sind 32-bit (z.B. oft ab 5031, 5078 etc.)
+    // Manche Energieregister sind 32-bit
     results['reg_32bit_5031'] = await readReg32(5031);
     results['reg_32bit_5078'] = await readReg32(5078);
     results['reg_32bit_5080'] = await readReg32(5080);
