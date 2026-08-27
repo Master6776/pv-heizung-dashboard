@@ -328,7 +328,7 @@ export default function Dashboard() {
 
         const lat = 48.397;
         const lon = 12.571;
-        const system1 = { kwp: 4.8, declination: 23, azimuth: 15 };
+        const system1 = { kwp: 8.8, declination: 23, azimuth: 15 };
         const system2 = { kwp: 3.7, declination: 20, azimuth: 100 };
         const system3 = { kwp: 2.0, declination: 20, azimuth: -79 };
 
