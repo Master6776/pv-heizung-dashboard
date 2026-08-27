@@ -183,13 +183,13 @@ async function fetchPvData() {
     client.setID(1);
 
     let powerVal = 0;
-    let rawYieldVal = 0;
-    let rawConsumptionVal = 0;
+    let yieldVal = 0;
+    let consumptionVal = 0;
     let batterySocVal = 0;
 
     const parseSigned16 = (val: number) => (val > 32767 ? val - 65536 : val);
 
-    // 1. Aktuelle Leistung (Register 5016)
+    // 1. Aktuelle Leistung (Register 5016) - Live
     try {
       const resPower = await client.readInputRegisters(5016, 1);
       if (resPower?.data && resPower.data.length > 0) {
@@ -197,41 +197,36 @@ async function fetchPvData() {
       }
     } catch (e) {}
 
-    // 2. Register 5002 auslesen
+    // 2. Tagesertrag direkt aus Register 13001 (16-Bit-Wert mit Faktor 0.1)
     try {
-      const resYield = await client.readInputRegisters(5002, 1);
+      const resYield = await client.readInputRegisters(13001, 1);
       if (resYield?.data && resYield.data.length > 0) {
-        rawYieldVal = resYield.data[0] * 0.1;
+        yieldVal = resYield.data[0] * 0.1;
       }
     } catch (e) {}
 
-    // 3. Register 13016 auslesen
+    // 3. Hausverbrauch (Register 5002)
     try {
-      const resConsumption = await client.readInputRegisters(13016, 1);
+      const resConsumption = await client.readInputRegisters(5002, 1);
       if (resConsumption?.data && resConsumption.data.length > 0) {
-        rawConsumptionVal = resConsumption.data[0] * 0.1;
+        consumptionVal = resConsumption.data[0] * 0.1;
       }
     } catch (e) {}
-
-    // Korrektur: Werte getauscht, damit Ertrag und Verbrauch exakt zur App passen
-    const realYield = rawConsumptionVal;
-    const realConsumption = rawYieldVal;
 
     // 4. Batterie-SoC (Register 13022) mit Faktor 0.1
     try {
       const socRes = await client.readInputRegisters(13022, 1);
       if (socRes?.data && socRes.data.length > 0) {
-        const val = socRes.data[0];
-        batterySocVal = Number((val * 0.1).toFixed(1));
+        batterySocVal = Number((socRes.data[0] * 0.1).toFixed(1));
       }
     } catch (e) {}
 
-    const calculatedEnergyAnalysis = Number((realYield - realConsumption).toFixed(1));
+    const calculatedEnergyAnalysis = Number((yieldVal - consumptionVal).toFixed(1));
 
     cachedPv = {
       currentPower: Number(powerVal),
-      dailyYield: Number(realYield.toFixed(1)),
-      dailyConsumption: Number(realConsumption.toFixed(1)),
+      dailyYield: Number(yieldVal.toFixed(1)),
+      dailyConsumption: Number(consumptionVal.toFixed(1)),
       batterySoc: Number(batterySocVal), 
       dailyExport: 0.0,          
       dailyImport: 0.0,
