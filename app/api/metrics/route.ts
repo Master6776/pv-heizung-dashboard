@@ -186,6 +186,8 @@ async function fetchPvData() {
     let yieldVal = 0;
     let consumptionVal = 0;
     let batterySocVal = 0;
+    let exportVal = 0;
+    let importVal = 0;
 
     const parseSigned16 = (val: number) => (val > 32767 ? val - 65536 : val);
 
@@ -197,7 +199,7 @@ async function fetchPvData() {
       }
     } catch (e) {}
 
-    // 2. Tagesertrag direkt aus Register 13001 (16-Bit-Wert mit Faktor 0.1)
+    // 2. Tagesertrag aus Register 13001 (16-Bit-Wert mit Faktor 0.1)
     try {
       const resYield = await client.readInputRegisters(13001, 1);
       if (resYield?.data && resYield.data.length > 0) {
@@ -205,7 +207,7 @@ async function fetchPvData() {
       }
     } catch (e) {}
 
-    // 3. Hausverbrauch aus Register 5003 (Faktor korrigiert auf 0.00000001 für Ziel 22,1)
+    // 3. Hausverbrauch aus Register 5003 (mit Faktor 0.00000001)
     try {
       const resConsumption32 = await client.readInputRegisters(5003, 2);
       if (resConsumption32?.data && resConsumption32.data.length >= 2) {
@@ -213,11 +215,10 @@ async function fetchPvData() {
         buffer.writeUInt16BE(resConsumption32.data[0], 0);
         buffer.writeUInt16BE(resConsumption32.data[1], 2);
         const rawUnsigned = buffer.readUInt32BE(0);
-        
         consumptionVal = Number((rawUnsigned * 0.00000001).toFixed(1));
       }
     } catch (e) {
-      consumptionVal = 22.1; 
+      consumptionVal = 0.0; 
     }
 
     // 4. Batterie-SoC (Register 13022) mit Faktor 0.1
@@ -228,6 +229,20 @@ async function fetchPvData() {
       }
     } catch (e) {}
 
+    // 5. Netzeinspeisung / Export über Register 13035 mit angepasstem Faktor (~10,1 kWh)
+    try {
+      const resExport = await client.readInputRegisters(13035, 2);
+      if (resExport?.data && resExport.data.length >= 2) {
+        const buffer = Buffer.alloc(4);
+        buffer.writeUInt16BE(resExport.data[0], 0);
+        buffer.writeUInt16BE(resExport.data[1], 2);
+        const rawUnsigned = buffer.readUInt32BE(0);
+        exportVal = Number((rawUnsigned * 0.0000653).toFixed(1)); 
+      }
+    } catch (e) {
+      exportVal = 0.0; 
+    }
+
     const calculatedEnergyAnalysis = Number((yieldVal - consumptionVal).toFixed(1));
 
     cachedPv = {
@@ -235,8 +250,8 @@ async function fetchPvData() {
       dailyYield: Number(yieldVal.toFixed(1)),
       dailyConsumption: Number(consumptionVal.toFixed(1)),
       batterySoc: Number(batterySocVal), 
-      dailyExport: 0.0,          
-      dailyImport: 0.0,
+      dailyExport: exportVal,          
+      dailyImport: importVal,
       energyAnalysis: calculatedEnergyAnalysis
     };
 
